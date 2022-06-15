@@ -8,6 +8,7 @@ hyperopt
 xgboost
 fastparquet
 prefect==2.0b5
+kaggle
 -e .
 
 # external requirements
