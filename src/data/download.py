@@ -3,42 +3,58 @@ import os
 
 import mlflow
 
-class TrainPath:
+class DataPath:
     def __init__(self, _data_root: str):
         self._data_root = _data_root
-        self._data_root_raw = os.path.join(_data_root, 'raw')
 
+        self._data_root_external = os.path.join(_data_root, 'external')
+        self._data_root_interim = os.path.join(_data_root, 'interim')
         self._data_root_raw = os.path.join(_data_root, 'raw')
         self._data_root_processed =  os.path.join(_data_root, 'processed')
 
-        self._train_dirpath = os.path.join(self._data_root_raw, "train")
-        self._train_filepath = os.path.join(self._train_dirpath, "train.csv")
-        self._test_dirpath = os.path.join(self._data_root_raw, "test")
-        self._test_filepath = os.path.join(self._test_dirpath, "test.csv")
+        self._external_train_dirpath = os.path.join(self._data_root_external, "train")
+        self._external_test_dirpath = os.path.join(self._data_root_external, "test")
 
-        self._train_processed_dirpath = os.path.join(self._data_root_processed, "train")
-        self._train_processed_filepath = os.path.join(self._data_root_processed, "train.csv")
-        self._valid_processed_dirpath = os.path.join(self._data_root_processed, "valid")
-        self._valid_processed_filepath = os.path.join(self._data_root_processed, "valid.csv")
-        self._test_processed_dirpath = os.path.join(self._data_root_processed, "test")
-        self._test_processed_filepath = os.path.join(self._data_root_processed, "test.csv")
+        self._raw_train_dirpath = os.path.join(self._data_root_raw, "train")
+        self._raw_valid_dirpath = os.path.join(self._data_root_raw, "valid")
+        self._raw_test_dirpath = os.path.join(self._data_root_raw, "test")
 
-def get_paths(_data_root):
-    return TrainPath(_data_root=_data_root)
+        self._processed_train_dirpath = os.path.join(self._data_root_processed, "train")
+        self._processed_valid_dirpath = os.path.join(self._data_root_processed, "valid")
+        self._processed_test_dirpath = os.path.join(self._data_root_processed, "test")
 
-def download_and_copy_data(data_root, train_filepath, test_filepath, kaggle_competition: str):
-    os.system(f'kaggle competitions download -c {kaggle_competition} -p {data_root} --force')
-    os.system(f'unzip -o {data_root}/"{kaggle_competition}.zip" -d {data_root}')
-    os.system(f'cp {data_root}/train.csv {train_filepath}')
-    os.system(f'cp {data_root}/test.csv {test_filepath}')
+    def make_dirs(self):
+        for directory in (self._data_root_interim,
+                          self._external_train_dirpath, self._external_test_dirpath,
+                          self._raw_train_dirpath, self._raw_valid_dirpath, self._raw_test_dirpath,
+                          self._processed_train_dirpath, self._processed_valid_dirpath, self._processed_test_dirpath):
+            os.makedirs(directory, exist_ok=True)
+
+    def get_train_file_path(self, dir_root):
+        return f'{dir_root}/train.csv'
+    def get_valid_file_path(self, dir_root):
+        return f'{dir_root}/valid.csv'
+    def get_test_file_path(self, dir_root):
+        return f'{dir_root}/test.csv'
+
+
+def get_datapath(_data_root):
+    return DataPath(_data_root=_data_root)
+
+def download_and_copy_data(data_path: DataPath, kaggle_competition: str):
+    os.system(f'kaggle competitions download -c {kaggle_competition} -p {data_path._data_root_external} --force')
+    os.system(f'unzip -o {data_path._data_root_external}/"{kaggle_competition}.zip" -d {data_path._data_root_external}')
+    os.system(f'cp {data_path._data_root_external}/train.csv {data_path._external_train_dirpath}')
+    os.system(f'cp {data_path._data_root_external}/test.csv {data_path._external_test_dirpath}')
 
     # clean up
-    os.system(f'rm {data_root}/*.csv {data_root}/*.zip')
+    os.system(f'rm {data_path._data_root_external}/*.csv {data_path._data_root_external}/*.zip')
 
 def run(data_root: str, kaggle_competition: str):
-    paths = get_paths(data_root)
-    download_and_copy_data(data_root=paths._data_root, train_filepath=paths._train_filepath,
-                       test_filepath=paths._test_filepath, kaggle_competition=kaggle_competition)
+    data_path = get_datapath(data_root)
+    data_path.make_dirs()
+
+    download_and_copy_data(data_path=data_path, kaggle_competition=kaggle_competition)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

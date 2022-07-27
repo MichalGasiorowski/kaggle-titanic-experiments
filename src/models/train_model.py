@@ -21,7 +21,8 @@ MLFLOW_DEFAULT_EXPERIMENT="titanic-experiment"
 sys.path.append('../')
 
 from src.data.download import run as download_run
-from src.data.download import get_paths as get_paths
+from src.data.download import get_datapath as get_datapath
+from src.data.download import DataPath
 
 def load_pickle(filename: str):
     with open(filename, "rb") as f_in:
@@ -70,18 +71,24 @@ def dump_pickle(obj, filename):
     with open(filename, "wb") as f_out:
         return pickle.dump(obj, f_out)
 
-def train(train_path: str, models_path: str):
+
+def train(datapath: DataPath, models_path: str):
+    external_train_path=datapath.get_train_file_path(datapath._external_train_dirpath)
+
     transforms = []
     target = 'Survived'
     categorical = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
     numerical = ['Fare']
 
-    df_train, df_val = split_train_read(train_path._train_filepath, val_size=0.2, random_state=42)
+    df_train, df_val = split_train_read(external_train_path, val_size=0.2, random_state=42)
+    df_test = read_data(datapath.get_test_file_path(datapath._external_test_dirpath))
+
+    df_train.to_csv(datapath.get_train_file_path(datapath._raw_train_dirpath))
+    df_val.to_csv(datapath.get_valid_file_path(datapath._raw_valid_dirpath))
+    df_test.to_csv(datapath.get_test_file_path(datapath._raw_test_dirpath))
 
     train_dicts, y_train = preprocess_df(df_train, transforms, categorical, numerical), extract_target(df_train)
     val_dicts, y_val = preprocess_df(df_val, transforms, categorical, numerical), extract_target(df_val)
-
-    df_test = read_data(train_path._test_filepath)
     test_dicts = preprocess_df(df_test, transforms, categorical, numerical)
 
     # Fit all possible categories
@@ -115,11 +122,11 @@ def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models
     mlflow.sklearn.autolog()
 
     with mlflow.start_run():
-        train_path = get_paths(data_root)
+        datapath = get_datapath(data_root)
 
         download_run(data_root, 'titanic')
 
-        train(train_path=train_path, models_path=models_path)
+        train(datapath=datapath, models_path=models_path)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
