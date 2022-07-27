@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.ensemble import RandomForestClassifier
@@ -17,19 +18,14 @@ from sklearn.model_selection import train_test_split
 MLFLOW_DEFAULT_TRACKING_URI="http://0.0.0.0:5000"
 MLFLOW_DEFAULT_EXPERIMENT="titanic-experiment"
 
+sys.path.append('../')
+
+from src.data.download import run as download_run
+from src.data.download import get_paths as get_paths
+
 def load_pickle(filename: str):
     with open(filename, "rb") as f_in:
         return pickle.load(f_in)
-
-def download_and_copy_data(data_root, train_filepath, test_filepath):
-    os.system(f'kaggle competitions download -c titanic -p {data_root} --force')
-    os.system(f'unzip -o {data_root}/"titanic.zip" -d {data_root}')
-    os.system(f'cp {data_root}/train.csv {train_filepath}')
-    os.system(f'cp {data_root}/test.csv {test_filepath}')
-
-    # clean up
-    os.system(f'rm {data_root}/*.csv {data_root}/*.zip')
-
 
 def extract_target(data: pd.DataFrame, target="Survived"):
     targets = data[target].values
@@ -61,17 +57,6 @@ def read_data(filename):
 
     return df
 
-def preprocess(df: pd.DataFrame, dv: DictVectorizer, fit_dv: bool = False):
-    df['PU_DO'] = df['PULocationID'] + '_' + df['DOLocationID']
-    categorical = ['PU_DO']
-    numerical = ['trip_distance']
-    dicts = df[categorical + numerical].to_dict(orient='records')
-    if fit_dv:
-        X = dv.fit_transform(dicts)
-    else:
-        X = dv.transform(dicts)
-    return X, dv
-
 def split_train_read(filename: str, val_size=0.2, random_state=42):
     df_train_full = read_data(filename)
 
@@ -84,29 +69,6 @@ def save_preprocessed(df: pd.DataFrame, path):
 def dump_pickle(obj, filename):
     with open(filename, "wb") as f_out:
         return pickle.dump(obj, f_out)
-
-class TrainPath:
-    def __init__(self, _data_root: str):
-        self._data_root = _data_root
-        self._data_root_raw = os.path.join(_data_root, 'raw')
-
-        self._data_root_raw = os.path.join(_data_root, 'raw')
-        self._data_root_processed =  os.path.join(_data_root, 'processed')
-
-        self._train_dirpath = os.path.join(self._data_root_raw, "train")
-        self._train_filepath = os.path.join(self._train_dirpath, "train.csv")
-        self._test_dirpath = os.path.join(self._data_root_raw, "test")
-        self._test_filepath = os.path.join(self._test_dirpath, "test.csv")
-
-        self._train_processed_dirpath = os.path.join(self._data_root_processed, "train")
-        self._train_processed_filepath = os.path.join(self._data_root_processed, "train.csv")
-        self._valid_processed_dirpath = os.path.join(self._data_root_processed, "valid")
-        self._valid_processed_filepath = os.path.join(self._data_root_processed, "valid.csv")
-        self._test_processed_dirpath = os.path.join(self._data_root_processed, "test")
-        self._test_processed_filepath = os.path.join(self._data_root_processed, "test.csv")
-
-def get_paths(_data_root):
-    return TrainPath(_data_root=_data_root)
 
 def train(train_path: str, models_path: str):
     transforms = []
@@ -154,10 +116,9 @@ def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models
 
     with mlflow.start_run():
         train_path = get_paths(data_root)
-        #def download_copy_data(data_root, train_filepath, test_filepath):
 
-        download_and_copy_data(data_root=train_path._data_root, train_filepath=train_path._train_filepath,
-                           test_filepath=train_path._test_filepath)
+        download_run(data_root, 'titanic')
+
         train(train_path=train_path, models_path=models_path)
 
 if __name__ == '__main__':
