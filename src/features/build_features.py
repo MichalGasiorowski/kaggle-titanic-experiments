@@ -41,24 +41,36 @@ def preprocess_df(df: pd.DataFrame, transforms, categorical, numerical):
     # Apply in-between transformations
     df = compose(*transforms[::-1])(df)
     # For dict vectorizer: int = ignored, str = one-hot
-    df[categorical] = df[categorical].astype(str)
+    df[categorical] = df[categorical].astype("category")
 
     return df
 
-def create_feature_dict(df: pd.DataFrame, categorical, numerical):
-    # Convert dataframe to feature dictionaries
-    return df[categorical + numerical].to_dict(orient='records')
-
-
-def run(data_root: str, data_path: str):
+def preprocess_all(df_train, df_val):
     transforms = []
     target = 'Survived'
     categorical = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
     numerical = ['Fare']
 
-    df = read_data(data_path)
+    dv = DictVectorizer()
+    df_train = preprocess_df(df_train, transforms, categorical, numerical)
+    df_val = preprocess_df(df_val, transforms, categorical, numerical)
 
+    train_dicts = df_train[categorical + numerical].to_dict(orient='records')
+    X_train = dv.fit_transform(train_dicts)
 
+    val_dicts = df_val[categorical + numerical].to_dict(orient='records')
+    X_val = dv.transform(val_dicts)
+
+    y_train = df_train[target].values
+    y_val = df_val[target].values
+
+    return X_train, X_val, y_train, y_val, dv
+
+def run(data_root: str, output_path: str):
+    transforms = []
+    target = 'Survived'
+    categorical = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
+    numerical = ['Fare']
 
 
 def main():
@@ -69,12 +81,12 @@ def main():
         help="The location where the raw Titanic data is downloaded"
     )
     parser.add_argument(
-        "--data_path",
+        "--output_path",
         help="the location where the resulting files will be saved."
     )
     args = parser.parse_args()
 
-    run(args.data_root, args.data_path)
+    run(args.data_root, args.output_path)
 
 if __name__ == '__main__':
     main()
