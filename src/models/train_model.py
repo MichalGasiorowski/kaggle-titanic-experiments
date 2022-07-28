@@ -6,6 +6,7 @@ from sklearn.feature_extraction import DictVectorizer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 
+
 import mlflow
 
 import pandas as pd
@@ -25,7 +26,6 @@ from src.data.download import get_datapath as get_datapath
 from src.data.download import DataPath
 
 from src.features.build_features import preprocess_df
-from src.features.build_features import create_feature_dict
 from src.features.build_features import extract_target
 
 def load_pickle(filename: str):
@@ -55,43 +55,43 @@ def dump_pickle(obj, filename):
     with open(filename, "wb") as f_out:
         return pickle.dump(obj, f_out)
 
+def preprocess_df(df: pd.DataFrame, transforms, categorical, numerical):
+    """Return processed features dict and target."""
+    # Apply in-between transformations
+    df = compose(*transforms[::-1])(df)
+    # For dict vectorizer: int = ignored, str = one-hot
+    df[categorical] = df[categorical].astype(str)
 
-def train(datapath: DataPath, models_path: str):
-    external_train_path=datapath.get_train_file_path(datapath._external_train_dirpath)
+    return df
 
+def preprocess_all(df_train, df_val):
     transforms = []
     target = 'Survived'
     categorical = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
     numerical = ['Fare']
 
-    df_train, df_val = split_train_read(external_train_path, val_size=0.2, random_state=42)
-    df_test = read_data(datapath.get_test_file_path(datapath._external_test_dirpath))
+    df_train = preprocess_df(df_train, transforms, categorical, numerical)
+    df_val = preprocess_df(df_val, transforms, categorical, numerical)
 
-    df_train.to_csv(datapath.get_train_file_path(datapath._raw_train_dirpath))
-    df_val.to_csv(datapath.get_valid_file_path(datapath._raw_valid_dirpath))
-    df_test.to_csv(datapath.get_test_file_path(datapath._raw_test_dirpath))
-
-    train_preprocessed = preprocess_df(df_train, transforms, categorical, numerical)
-    valid_preprocessed = preprocess_df(df_val, transforms, categorical, numerical)
-    y_train = extract_target(data=df_train, target=target)
-    y_val = extract_target(data=df_val, target=target)
-
-    train_preprocessed.to_csv(datapath.get_train_file_path(datapath._processed_train_dirpath))
-    valid_preprocessed.to_csv(datapath.get_valid_file_path(datapath._processed_train_dirpath))
-
-    train_dicts = train_preprocessed[categorical + numerical].to_dict(orient='records')
-    val_dicts = valid_preprocessed[categorical + numerical].to_dict(orient='records')
-
-
-    #test_dicts = preprocess_df(df_test, transforms, categorical, numerical)
-
-    # Fit all possible categories
     dv = DictVectorizer()
-    dv.fit(train_dicts)
+    train_dicts = df_train[categorical + numerical].to_dict(orient='records')
+    X_train = dv.fit_transform(train_dicts)
 
-    X_train = dv.transform(train_dicts)
+    val_dicts = df_val[categorical + numerical].to_dict(orient='records')
     X_val = dv.transform(val_dicts)
-    #X_test = dv.transform(test_dicts)
+
+    y_train = df_train[target].values
+    y_val = df_val[target].values
+
+    return X_train, X_val, y_train, y_val, dv
+
+
+def train(datapath: DataPath, models_path: str):
+    external_train_path=datapath.get_train_file_path(datapath._external_train_dirpath)
+
+    df_train, df_val = split_train_read(external_train_path, val_size=0.2, random_state=42)
+
+    X_train, X_val, y_train, y_val, dv = preprocess_all(df_train, df_val)
 
     model = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=1)
 
@@ -109,6 +109,7 @@ def train(datapath: DataPath, models_path: str):
 
     print(accuracy)
 
+
 def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models_path: str):
     mlflow.set_tracking_uri(mlflow_tracking_uri)
     print(f"tracking URI: '{mlflow.get_tracking_uri()}'")
@@ -117,7 +118,6 @@ def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models
 
     with mlflow.start_run():
         datapath = get_datapath(data_root)
-
         download_run(data_root, 'titanic')
 
         train(datapath=datapath, models_path=models_path)
