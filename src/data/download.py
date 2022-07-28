@@ -1,5 +1,6 @@
 import argparse
 import os
+import os.path
 
 import mlflow
 
@@ -41,7 +42,9 @@ class DataPath:
 def get_datapath(_data_root):
     return DataPath(_data_root=_data_root)
 
-def download_and_copy_data(data_path: DataPath, kaggle_competition: str):
+def download_and_copy_data(data_path: DataPath, kaggle_competition: str, force: bool = False):
+    if os.path.exists(f'{data_path._external_train_dirpath}/train.csv') and not force:
+        return
     os.system(f'kaggle competitions download -c {kaggle_competition} -p {data_path._data_root_external} --force')
     os.system(f'unzip -o {data_path._data_root_external}/"{kaggle_competition}.zip" -d {data_path._data_root_external}')
     os.system(f'cp {data_path._data_root_external}/train.csv {data_path._external_train_dirpath}')
