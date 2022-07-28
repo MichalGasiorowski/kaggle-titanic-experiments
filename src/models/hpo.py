@@ -11,7 +11,7 @@ from sklearn.metrics import roc_auc_score
 
 import xgboost as xgb
 
-from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
+from hyperopt import fmin, tpe, hp, STATUS_OK, Trials, space_eval
 from hyperopt.pyll import scope
 
 import mlflow
@@ -66,8 +66,7 @@ def preprocess_df(df: pd.DataFrame, transforms, categorical, numerical):
     # Apply in-between transformations
     df = compose(*transforms[::-1])(df)
     # For dict vectorizer: int = ignored, str = one-hot
-    df[categorical] = df[categorical].astype("category")
-
+    df[categorical] = df[categorical].fillna(-1).astype("category")
     return df
 
 def preprocess_all(df_train, df_val):
@@ -90,6 +89,67 @@ def preprocess_all(df_train, df_val):
     y_val = df_val[target].values
 
     return X_train, X_val, y_train, y_val, dv
+
+
+def train_model_rfc_search(X_train, y_train, X_valid, y_val):
+
+    mlflow.sklearn.autolog()
+
+    def objective(params):
+        with mlflow.start_run(nested=True):
+            n_estimators=int(params['n_estimators'])
+            max_depth=int(params['max_depth'])
+            min_samples_leaf=int(params['min_samples_leaf'])
+            min_samples_split=int(params['min_samples_split'])
+            criterion=params['criterion']
+            max_features=params['max_features']
+
+            mlflow.set_tag("model", "rfc")
+            mlflow.log_params(params)
+            # Train model and record run time
+            start_time = time.time()
+
+            model = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
+                    min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split,
+                    criterion=criterion, max_features=max_features,
+                    n_jobs=1, random_state=42)
+            model.fit(X_train, y_train)
+            run_time = time.time() - start_time
+            mlflow.log_metric('runtime', run_time)
+
+            y_pred = model.predict(X_valid)
+            auc_score = roc_auc_score(y_val, y_pred)
+            mlflow.log_metric("auc_score", auc_score)
+
+        return {'loss': -auc_score, 'status': STATUS_OK}
+
+    search_space={
+                #'n_estimators': hp.randint('n_estimators', 200, 1000),
+                'n_estimators': scope.int(hp.quniform('n_estimators', 50, 500, 1)),
+                'max_depth': hp.randint('max_depth', 5, 40),
+                'min_samples_split': hp.uniform('min_samples_split', 2, 6),
+                'min_samples_leaf': hp.randint('min_samples_leaf', 1, 10),
+                'criterion': hp.choice('criterion', ['gini','entropy']),
+                'max_features': hp.choice('max_features', ['sqrt', 'log2'])
+                }
+
+    trials=Trials()
+    best_params = fmin(
+        fn=objective,
+        space=search_space,
+        algo=tpe.suggest,
+        max_evals=50,
+        trials=trials,
+        rstate=np.random.default_rng(42)
+    )
+
+    print(f'best_params: {best_params}')
+
+    sp_eval = space_eval(search_space, best_params)
+    print( space_eval(search_space, best_params) )
+    mlflow.log_metric('space_eval', sp_eval)
+
+    return best_params
 
 
 def train_model_xgboost_search(train, valid, y_val):
@@ -133,21 +193,20 @@ def train_model_xgboost_search(train, valid, y_val):
         'seed': 42,
     }
 
-    best_result = fmin(
+    best_params = fmin(
         fn=objective,
         space=search_space,
         algo=tpe.suggest,
         max_evals=25,
         trials=Trials()
     )
-    print(f'best_result: {best_result}')
-    return best_result
+    print(f'best_params: {best_params}')
+    return best_params
 
-def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models_path: str):
+def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models_path: str, model: str):
     mlflow.set_tracking_uri(mlflow_tracking_uri)
     print(f"tracking URI: '{mlflow.get_tracking_uri()}'")
     mlflow.set_experiment(mlflow_experiment)
-    mlflow.sklearn.autolog()
 
     with mlflow.start_run():
         datapath = get_datapath(data_root)
@@ -158,10 +217,13 @@ def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models
         df_train, df_val = split_train_read(external_train_path, val_size=0.2, random_state=42)
 
         X_train, X_val, y_train, y_val, dv = preprocess_all(df_train, df_val)
-        train = xgb.DMatrix(X_train, label=y_train)
-        valid = xgb.DMatrix(X_val, label=y_val)
+        if model == 'xgboost':
+            train = xgb.DMatrix(X_train, label=y_train)
+            valid = xgb.DMatrix(X_val, label=y_val)
+            train_model_xgboost_search(train, valid, y_val)
+        elif model == 'rfc':
+            train_model_rfc_search(X_train, y_train, X_val, y_val)
 
-        train_model_xgboost_search(train, valid, y_val)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -193,4 +255,4 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    run(args.data_root, args.mlflow_tracking_uri, args.mlflow_experiment, args.models_path)
+    run(args.data_root, args.mlflow_tracking_uri, args.mlflow_experiment, args.models_path, args.model)
