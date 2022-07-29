@@ -41,8 +41,7 @@ def preprocess_df(df: pd.DataFrame, transforms, categorical, numerical):
     # Apply in-between transformations
     df = compose(*transforms[::-1])(df)
     # For dict vectorizer: int = ignored, str = one-hot
-    df[categorical] = df[categorical].astype("category")
-
+    df[categorical] = df[categorical].fillna(-1).astype("category")
     return df
 
 def preprocess_all(df_train, df_val):
@@ -51,10 +50,10 @@ def preprocess_all(df_train, df_val):
     categorical = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
     numerical = ['Fare']
 
-    dv = DictVectorizer()
     df_train = preprocess_df(df_train, transforms, categorical, numerical)
     df_val = preprocess_df(df_val, transforms, categorical, numerical)
 
+    dv = DictVectorizer()
     train_dicts = df_train[categorical + numerical].to_dict(orient='records')
     X_train = dv.fit_transform(train_dicts)
 
@@ -65,6 +64,7 @@ def preprocess_all(df_train, df_val):
     y_val = df_val[target].values
 
     return X_train, X_val, y_train, y_val, dv
+
 
 def run(data_root: str, output_path: str):
     transforms = []

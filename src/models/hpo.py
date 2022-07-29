@@ -35,6 +35,7 @@ from src.data.download import get_datapath as get_datapath
 from src.data.download import DataPath
 
 from src.features.build_features import preprocess_df
+from src.features.build_features import preprocess_all
 
 def load_pickle(filename: str):
     with open(filename, "rb") as f_in:
@@ -63,34 +64,6 @@ def dump_pickle(obj, filename):
     with open(filename, "wb") as f_out:
         return pickle.dump(obj, f_out)
 
-def preprocess_df(df: pd.DataFrame, transforms, categorical, numerical):
-    """Return processed features dict and target."""
-    # Apply in-between transformations
-    df = compose(*transforms[::-1])(df)
-    # For dict vectorizer: int = ignored, str = one-hot
-    df[categorical] = df[categorical].fillna(-1).astype("category")
-    return df
-
-def preprocess_all(df_train, df_val):
-    transforms = []
-    target = 'Survived'
-    categorical = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
-    numerical = ['Fare']
-
-    df_train = preprocess_df(df_train, transforms, categorical, numerical)
-    df_val = preprocess_df(df_val, transforms, categorical, numerical)
-
-    dv = DictVectorizer()
-    train_dicts = df_train[categorical + numerical].to_dict(orient='records')
-    X_train = dv.fit_transform(train_dicts)
-
-    val_dicts = df_val[categorical + numerical].to_dict(orient='records')
-    X_val = dv.transform(val_dicts)
-
-    y_train = df_train[target].values
-    y_val = df_val[target].values
-
-    return X_train, X_val, y_train, y_val, dv
 
 def fit_rfc_model(params, X_train, y_train):
     n_estimators=int(params['n_estimators'])
@@ -182,7 +155,7 @@ def fit_booster_model(params, train, valid):
     )
     return booster
 
-def train_model_xgboost_search(train, valid, y_val, max_evals):
+def train_model_xgboost_search(train, valid, y_val, max_evals, models_path):
 
     mlflow.xgboost.autolog(disable=True)
 
@@ -232,7 +205,8 @@ def train_model_xgboost_search(train, valid, y_val, max_evals):
 
     mlflow.xgboost.autolog()
     final_model = fit_booster_model(best_params, train, valid)
-    mlflow.xgboost.log_model(final_model, "final_xgb_model")
+
+    mlflow.xgboost.log_model(final_model, "models_pickle")
 
     y_pred = final_model.predict(valid)
     auc_score = roc_auc_score(y_val, y_pred)
@@ -257,6 +231,10 @@ def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models
         df_train, df_val = split_train_read(external_train_path, val_size=0.2, random_state=42)
 
         X_train, X_val, y_train, y_val, dv = preprocess_all(df_train, df_val)
+        with open(f'{models_path}/preprocessor.b', "wb") as f_out:
+            pickle.dump(dv, f_out)
+        mlflow.log_artifact(f'{models_path}/preprocessor.b', artifact_path="preprocessor")
+
         if model == 'xgboost':
             train = xgb.DMatrix(X_train, label=y_train)
             valid = xgb.DMatrix(X_val, label=y_val)
