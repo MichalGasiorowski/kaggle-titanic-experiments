@@ -106,7 +106,7 @@ def fit_rfc_model(params, X_train, y_train):
     model.fit(X_train, y_train)
     return model
 
-def train_model_rfc_search(X_train, y_train, X_valid, y_val):
+def train_model_rfc_search(X_train, y_train, X_valid, y_val, max_evals):
 
     mlflow.sklearn.autolog(disable=True)
     def objective(params):
@@ -143,7 +143,7 @@ def train_model_rfc_search(X_train, y_train, X_valid, y_val):
         fn=objective,
         space=search_space,
         algo=tpe.suggest,
-        max_evals=10,
+        max_evals=int(max_evals),
         rstate=np.random.default_rng(42),
         #early_stop_fn=hyperopt.early_stop.no_progress_loss(20)
         trials=Trials()
@@ -182,7 +182,7 @@ def fit_booster_model(params, train, valid):
     )
     return booster
 
-def train_model_xgboost_search(train, valid, y_val):
+def train_model_xgboost_search(train, valid, y_val, max_evals):
 
     mlflow.xgboost.autolog(disable=True)
 
@@ -222,7 +222,7 @@ def train_model_xgboost_search(train, valid, y_val):
         fn=objective,
         space=search_space,
         algo=tpe.suggest,
-        max_evals=50,
+        max_evals=int(max_evals),
         #early_stop_fn=hyperopt.early_stop.no_progress_loss(10),
         trials=Trials()
     )
@@ -243,7 +243,7 @@ def train_model_xgboost_search(train, valid, y_val):
 
     return best_params
 
-def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models_path: str, model: str):
+def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models_path: str, model: str, max_evals: str):
     mlflow.set_tracking_uri(mlflow_tracking_uri)
     print(f"tracking URI: '{mlflow.get_tracking_uri()}'")
     mlflow.set_experiment(mlflow_experiment)
@@ -260,9 +260,9 @@ def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models
         if model == 'xgboost':
             train = xgb.DMatrix(X_train, label=y_train)
             valid = xgb.DMatrix(X_val, label=y_val)
-            train_model_xgboost_search(train, valid, y_val)
+            train_model_xgboost_search(train, valid, y_val, max_evals)
         elif model == 'rfc':
-            train_model_rfc_search(X_train, y_train, X_val, y_val)
+            train_model_rfc_search(X_train, y_train, X_val, y_val, max_evals)
 
 
 if __name__ == '__main__':
@@ -292,7 +292,12 @@ if __name__ == '__main__':
         default="xgboost",
         help="Model for HyperOptimization"
     )
+    parser.add_argument(
+        "--max_evals",
+        default="50",
+        help="Maximum number of evaluations for HPO"
+    )
 
     args = parser.parse_args()
 
-    run(args.data_root, args.mlflow_tracking_uri, args.mlflow_experiment, args.models_path, args.model)
+    run(args.data_root, args.mlflow_tracking_uri, args.mlflow_experiment, args.models_path, args.model, args.max_evals)
