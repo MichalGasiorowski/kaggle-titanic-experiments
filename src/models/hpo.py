@@ -1,5 +1,7 @@
 import argparse
 import os
+
+import hyperopt.early_stop
 import sys
 
 import time
@@ -90,71 +92,99 @@ def preprocess_all(df_train, df_val):
 
     return X_train, X_val, y_train, y_val, dv
 
+def fit_rfc_model(params, X_train, y_train):
+    n_estimators=int(params['n_estimators'])
+    max_depth=int(params['max_depth'])
+    min_samples_leaf=int(params['min_samples_leaf'])
+    min_samples_split=int(params['min_samples_split'])
+    criterion=params['criterion']
+    max_features=params['max_features']
+    model = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
+                                    min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split,
+                                    criterion=criterion, max_features=max_features,
+                                    n_jobs=1, random_state=42)
+    model.fit(X_train, y_train)
+    return model
 
 def train_model_rfc_search(X_train, y_train, X_valid, y_val):
 
-    mlflow.sklearn.autolog()
-
+    mlflow.sklearn.autolog(disable=True)
     def objective(params):
         with mlflow.start_run(nested=True):
-            n_estimators=int(params['n_estimators'])
-            max_depth=int(params['max_depth'])
-            min_samples_leaf=int(params['min_samples_leaf'])
-            min_samples_split=int(params['min_samples_split'])
-            criterion=params['criterion']
-            max_features=params['max_features']
-
             mlflow.set_tag("model", "rfc")
             mlflow.log_params(params)
+
             # Train model and record run time
             start_time = time.time()
-
-            model = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
-                    min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split,
-                    criterion=criterion, max_features=max_features,
-                    n_jobs=1, random_state=42)
-            model.fit(X_train, y_train)
+            model = fit_rfc_model(params, X_train, y_train)
             run_time = time.time() - start_time
+
             mlflow.log_metric('runtime', run_time)
 
             y_pred = model.predict(X_valid)
             auc_score = roc_auc_score(y_val, y_pred)
             mlflow.log_metric("auc_score", auc_score)
+            #acc = accuracy_score(y_val, y_pred)
+            #mlflow.log_metric("accuracy", acc)
 
         return {'loss': -auc_score, 'status': STATUS_OK}
 
     search_space={
                 #'n_estimators': hp.randint('n_estimators', 200, 1000),
-                'n_estimators': scope.int(hp.quniform('n_estimators', 50, 500, 1)),
+                'n_estimators': hp.randint('n_estimators', 100, 1000),
                 'max_depth': hp.randint('max_depth', 5, 40),
-                'min_samples_split': hp.uniform('min_samples_split', 2, 6),
+                'min_samples_split': hp.uniform('min_samples_split', 2, 8),
                 'min_samples_leaf': hp.randint('min_samples_leaf', 1, 10),
                 'criterion': hp.choice('criterion', ['gini','entropy']),
                 'max_features': hp.choice('max_features', ['sqrt', 'log2'])
                 }
 
-    trials=Trials()
     best_params = fmin(
         fn=objective,
         space=search_space,
         algo=tpe.suggest,
-        max_evals=50,
-        trials=trials,
-        rstate=np.random.default_rng(42)
+        max_evals=10,
+        rstate=np.random.default_rng(42),
+        #early_stop_fn=hyperopt.early_stop.no_progress_loss(20)
+        trials=Trials()
     )
-
     print(f'best_params: {best_params}')
 
     sp_eval = space_eval(search_space, best_params)
-    print( space_eval(search_space, best_params) )
-    mlflow.log_metric('space_eval', sp_eval)
+    print(f'sp_eval: {sp_eval}')
+
+    #dict_best_params = dict(best_params)
+    #print(f'dict_best_params: {dict_best_params}')
+
+    #mlflow.log_dict(dict_best_params, "best_params.json")
+
+    mlflow.sklearn.autolog()
+    best_model = fit_rfc_model(sp_eval, X_train, y_train)
+    mlflow.sklearn.log_model(best_model, artifact_path="models_pickle")
+
+    y_pred = best_model.predict(X_valid)
+    auc_score = roc_auc_score(y_val, y_pred)
+    mlflow.log_metric("valid_auc_score", auc_score)
+
+    acc = accuracy_score(y_val, y_pred)
+    mlflow.log_metric("accuracy", acc)
 
     return best_params
 
 
+def fit_booster_model(params, train, valid):
+    booster = xgb.train(
+        params=params,
+        dtrain=train,
+        num_boost_round=1000,
+        evals=[(valid, 'validation')],
+        early_stopping_rounds=50
+    )
+    return booster
+
 def train_model_xgboost_search(train, valid, y_val):
 
-    mlflow.xgboost.autolog(silent=True)
+    mlflow.xgboost.autolog(disable=True)
 
     def objective(params):
         with mlflow.start_run(nested=True):
@@ -163,13 +193,8 @@ def train_model_xgboost_search(train, valid, y_val):
             # Train model and record run time
             start_time = time.time()
 
-            booster = xgb.train(
-                params=params,
-                dtrain=train,
-                num_boost_round=1000,
-                evals=[(valid, 'validation')],
-                early_stopping_rounds=50
-            )
+            booster = fit_booster_model(params, train, valid)
+
             run_time = time.time() - start_time
             mlflow.log_metric('runtime', run_time)
 
@@ -197,10 +222,25 @@ def train_model_xgboost_search(train, valid, y_val):
         fn=objective,
         space=search_space,
         algo=tpe.suggest,
-        max_evals=25,
+        max_evals=50,
+        #early_stop_fn=hyperopt.early_stop.no_progress_loss(10),
         trials=Trials()
     )
+
     print(f'best_params: {best_params}')
+    #mlflow.log_dict(best_params, "best_params.json")
+
+    mlflow.xgboost.autolog()
+    final_model = fit_booster_model(best_params, train, valid)
+    mlflow.xgboost.log_model(final_model, "final_xgb_model")
+
+    y_pred = final_model.predict(valid)
+    auc_score = roc_auc_score(y_val, y_pred)
+    mlflow.log_metric("valid_auc_score", auc_score)
+
+    acc = accuracy_score(y_val, y_pred)
+    mlflow.log_metric("accuracy", acc)
+
     return best_params
 
 def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models_path: str, model: str):
