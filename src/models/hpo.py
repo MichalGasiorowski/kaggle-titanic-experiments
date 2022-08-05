@@ -178,8 +178,10 @@ def train_model_xgboost_search(train, valid, y_val, max_evals):
         return {'loss': -auc_score, 'status': STATUS_OK, 'booster': booster.attributes()}
 
     search_space = {
+        # hp.choice('max_depth', np.arange(1, 14, dtype=int))
         'learning_rate': hp.loguniform('learning_rate', -7, 0),
-        'max_depth': scope.int(hp.uniform('max_depth', 1, 100)),
+        #'max_depth': scope.int(hp.uniform('max_depth', 1, 100)),
+        'max_depth': hp.choice('max_depth', np.arange(1, 14, dtype=int)),
         'min_child_weight': hp.loguniform('min_child_weight', -2, 3),
         'subsample': hp.uniform('subsample', 0.5, 1),
         'colsample_bytree': hp.uniform('colsample_bytree', 0.5, 1),
@@ -212,8 +214,8 @@ def train_model_xgboost_search(train, valid, y_val, max_evals):
     auc_score = roc_auc_score(y_val, y_pred)
     mlflow.log_metric("valid_auc_score", auc_score)
 
-    acc = accuracy_score(y_val, y_pred)
-    mlflow.log_metric("accuracy", acc)
+    #acc = accuracy_score(y_val, y_pred)
+    #mlflow.log_metric("accuracy", acc)
 
     return best_params
 
