@@ -55,15 +55,6 @@ def dump_pickle(obj, filename):
     with open(filename, "wb") as f_out:
         return pickle.dump(obj, f_out)
 
-def preprocess_df(df: pd.DataFrame, transforms, categorical, numerical):
-    """Return processed features dict and target."""
-    # Apply in-between transformations
-    df = compose(*transforms[::-1])(df)
-    # For dict vectorizer: int = ignored, str = one-hot
-    df[categorical] = df[categorical].astype(str)
-
-    return df
-
 def preprocess_all(df_train, df_val):
     transforms = []
     target = 'Survived'
