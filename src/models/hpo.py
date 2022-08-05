@@ -155,7 +155,7 @@ def fit_booster_model(params, train, valid):
     )
     return booster
 
-def train_model_xgboost_search(train, valid, y_val, max_evals, models_path):
+def train_model_xgboost_search(train, valid, y_val, max_evals):
 
     mlflow.xgboost.autolog(disable=True)
 
@@ -230,9 +230,9 @@ def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models
 
         df_train, df_val = split_train_read(external_train_path, val_size=0.2, random_state=42)
 
-        X_train, X_val, y_train, y_val, dv = preprocess_all(df_train, df_val)
+        X_train, X_val, y_train, y_val, preprocessor = preprocess_all(df_train, df_val)
         with open(f'{models_path}/preprocessor.b', "wb") as f_out:
-            pickle.dump(dv, f_out)
+            pickle.dump(preprocessor, f_out)
         mlflow.log_artifact(f'{models_path}/preprocessor.b', artifact_path="preprocessor")
 
         if model == 'xgboost':

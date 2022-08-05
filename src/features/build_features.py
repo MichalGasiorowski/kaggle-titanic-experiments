@@ -5,6 +5,8 @@ import pickle
 import pandas as pd
 from sklearn.feature_extraction import DictVectorizer
 
+from sklearn.pipeline import make_pipeline
+
 from toolz import compose
 
 from src.data.download import get_datapath as get_datapath
@@ -33,45 +35,90 @@ def extract_target(data: pd.DataFrame, target="Survived"):
     targets = data[target].values
     return targets
 
+def get_preprocessing_config():
+    transforms = []
+    target = 'Survived'
+    categorical = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
+    numerical = ['Fare']
+
+    return transforms, target, categorical, numerical
+
+def create_preprocessing_pipeline():
+    transforms, target, categorical, numerical = get_preprocessing_config()
+    pipeline = make_pipeline(
+        DictVectorizer()
+    )
+    return pipeline
+
+
 def save_preprocessed(df: pd.DataFrame, path):
     df.to_csv(path)
 
+def prepare_dictionaries(df: pd.DataFrame):
+
+    transforms, target, categorical, numerical = get_preprocessing_config()
+
+    dicts = df[categorical + numerical].to_dict(orient='records')
+    return dicts
+
 def preprocess_df(df: pd.DataFrame, transforms, categorical, numerical):
     """Return processed features dict and target."""
+
     # Apply in-between transformations
     df = compose(*transforms[::-1])(df)
     # For dict vectorizer: int = ignored, str = one-hot
     df[categorical] = df[categorical].fillna(-1).astype("category")
     return df
 
-def preprocess_all(df_train, df_val):
-    transforms = []
-    target = 'Survived'
-    categorical = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
-    numerical = ['Fare']
+def preprocess_train(df_train):
+    transforms, target, categorical, numerical = get_preprocessing_config()
 
     df_train = preprocess_df(df_train, transforms, categorical, numerical)
-    df_val = preprocess_df(df_val, transforms, categorical, numerical)
 
-    dv = DictVectorizer()
-    train_dicts = df_train[categorical + numerical].to_dict(orient='records')
-    X_train = dv.fit_transform(train_dicts)
+    #
+    pipeline = create_preprocessing_pipeline()
 
-    val_dicts = df_val[categorical + numerical].to_dict(orient='records')
-    X_val = dv.transform(val_dicts)
+    train_dicts = prepare_dictionaries(df_train)
+    X_train = pipeline.fit_transform(train_dicts)
+
+    #
 
     y_train = df_train[target].values
+
+    return X_train, y_train, pipeline
+
+def preprocess_valid(df_val, preprocessing_pipeline):
+    transforms, target, categorical, numerical = get_preprocessing_config()
+
+    df_val = preprocess_df(df_val, transforms, categorical, numerical)
+
+    val_dicts = prepare_dictionaries(df_val)
+    X_val = preprocessing_pipeline.transform(val_dicts)
+
     y_val = df_val[target].values
 
-    return X_train, X_val, y_train, y_val, dv
+    return X_val, y_val
+
+def preprocess_test(df_test, preprocessing_pipeline):
+    transforms, target, categorical, numerical = get_preprocessing_config()
+
+    df_test = preprocess_df(df_test, transforms, categorical, numerical)
+
+    test_dicts = prepare_dictionaries(df_test)
+    X_test = preprocessing_pipeline.transform(test_dicts)
+
+    return X_test
+
+def preprocess_all(df_train, df_val):
+    X_train, y_train, prep_pipeline = preprocess_train(df_train)
+    X_val, y_val = preprocess_valid(df_val, prep_pipeline)
+
+    return X_train, X_val, y_train, y_val, prep_pipeline
 
 
 def run(data_root: str, output_path: str):
-    transforms = []
-    target = 'Survived'
-    categorical = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
-    numerical = ['Fare']
 
+    pass
 
 def main():
     parser = argparse.ArgumentParser()
