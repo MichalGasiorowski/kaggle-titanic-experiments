@@ -23,6 +23,9 @@ import numpy as np
 from toolz import compose
 import pickle
 
+from xgboost import plot_tree
+import matplotlib.pyplot as plt
+
 from sklearn.model_selection import train_test_split
 
 MLFLOW_DEFAULT_TRACKING_URI="http://0.0.0.0:5000"
@@ -208,7 +211,16 @@ def train_model_xgboost_search(train, valid, y_val, max_evals):
     mlflow.xgboost.autolog()
     final_model = fit_booster_model(best_params, train, valid)
 
+    #prep_pipeline.steps.append(['xgboost_model', final_model])
+
     mlflow.xgboost.log_model(final_model, "models_pickle")
+
+    fig, ax = plt.subplots(figsize=(30, 30))
+    plot_tree(final_model, num_trees=4, ax=ax)
+    plt.show()
+    plt.savefig("temp.pdf")
+
+    #mlflow.sklearn.log_model(prep_pipeline, "model_pipeline")
 
     y_pred = final_model.predict(valid)
     auc_score = roc_auc_score(y_val, y_pred)
@@ -232,9 +244,9 @@ def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models
 
         df_train, df_val = split_train_read(external_train_path, val_size=0.2, random_state=42)
 
-        X_train, X_val, y_train, y_val, preprocessor = preprocess_all(df_train, df_val)
+        X_train, X_val, y_train, y_val, prep_pipeline = preprocess_all(df_train, df_val)
         with open(f'{models_path}/preprocessor.b', "wb") as f_out:
-            pickle.dump(preprocessor, f_out)
+            pickle.dump(prep_pipeline, f_out)
         mlflow.log_artifact(f'{models_path}/preprocessor.b', artifact_path="preprocessor")
 
         if model == 'xgboost':

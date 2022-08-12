@@ -2,15 +2,26 @@ import argparse
 import os
 import pickle
 
+import numpy as np
 import pandas as pd
 from sklearn.feature_extraction import DictVectorizer
 
 from sklearn.pipeline import make_pipeline
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.compose import ColumnTransformer, make_column_transformer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from toolz import compose
 
 from src.data.download import get_datapath as get_datapath
 from src.data.download import DataPath
+
+target = 'Survived'
+categorical = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
+numerical = ['Fare']
+
+all_columns = categorical + numerical
 
 
 def dump_pickle(obj, filename):
@@ -43,12 +54,42 @@ def get_preprocessing_config():
 
     return transforms, target, categorical, numerical
 
+
 def create_preprocessing_pipeline():
     transforms, target, categorical, numerical = get_preprocessing_config()
     pipeline = make_pipeline(
         DictVectorizer()
     )
     return pipeline
+
+def create_preprocessing_pipeline_new():
+    transforms, target, categorical, numerical = get_preprocessing_config()
+
+    numeric_preprocessor = Pipeline([
+            ("imputation_mean", SimpleImputer(missing_values=np.nan, strategy="mean")),
+            ("scaler", StandardScaler())
+        ]
+    )
+
+    categorical_preprocessor = Pipeline([
+            ("imputation_constant", SimpleImputer(fill_value="missing", strategy="constant")),
+            ("onehot", OneHotEncoder(handle_unknown="ignore"))
+        ]
+    )
+
+    preprocessor = make_column_transformer(
+            (categorical_preprocessor, categorical),
+            (numeric_preprocessor, numerical)
+    )
+
+    pipe = make_pipeline(
+         DictVectorizer(), preprocessor
+    )
+
+    #pipeline = make_pipeline(
+     #   DictVectorizer()
+    #)
+    return pipe
 
 
 def save_preprocessed(df: pd.DataFrame, path):
@@ -68,6 +109,7 @@ def preprocess_df(df: pd.DataFrame, transforms, categorical, numerical):
     df = compose(*transforms[::-1])(df)
     # For dict vectorizer: int = ignored, str = one-hot
     df[categorical] = df[categorical].fillna(-1).astype("category")
+
     return df
 
 def preprocess_train(df_train):
@@ -77,7 +119,7 @@ def preprocess_train(df_train):
 
     #
     pipeline = create_preprocessing_pipeline()
-
+    print(pipeline)
     train_dicts = prepare_dictionaries(df_train)
     X_train = pipeline.fit_transform(train_dicts)
 
@@ -108,6 +150,15 @@ def preprocess_test(df_test, preprocessing_pipeline):
     X_test = preprocessing_pipeline.transform(test_dicts)
 
     return X_test
+
+def preprocess_test_no_pipeline(df_test):
+    transforms, target, categorical, numerical = get_preprocessing_config()
+
+    df_test = preprocess_df(df_test, transforms, categorical, numerical)
+
+    test_dicts = prepare_dictionaries(df_test)
+
+    return test_dicts
 
 def preprocess_all(df_train, df_val):
     X_train, y_train, prep_pipeline = preprocess_train(df_train)

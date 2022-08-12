@@ -10,11 +10,12 @@ from flask import Flask, request, jsonify
 import boto3
 import pickle
 from src.features.build_features import preprocess_test
+from src.features.build_features import preprocess_test_no_pipeline
 from src.features.build_features import all_columns
 
 app = Flask('survivorship-prediction')
 
-DEFAULT_RUN_ID = 'd6dc868dda9e41ecaf536a91f41e059e'
+DEFAULT_RUN_ID = '565ab3ce6de44b45ac0d67244887b837'
 RUN_ID = os.getenv('RUN_ID', DEFAULT_RUN_ID)
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'mlflow-enkidupal-experiments')
 
@@ -37,9 +38,16 @@ def create_features(json):
 
 
 def calculate_predict(df: pd.DataFrame):
-    preprocessed = preprocess_test(df, preprocessor)
+    dicts = preprocess_test(df, preprocessor)
 
-    predictions = model.predict(preprocessed).tolist()
+    ###
+    # returns dictionary, since model expects its
+    # and has dv as first pipeline step
+    #dicts = preprocess_test_no_pipeline(df)
+    ###
+    print(model)
+
+    predictions = model.predict(dicts).tolist()
     result = {
         'predictions': list(predictions)
     }
