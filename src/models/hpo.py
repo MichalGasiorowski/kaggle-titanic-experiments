@@ -215,10 +215,10 @@ def train_model_xgboost_search(train, valid, y_val, max_evals):
 
     mlflow.xgboost.log_model(final_model, "models_pickle")
 
-    fig, ax = plt.subplots(figsize=(30, 30))
-    plot_tree(final_model, num_trees=4, ax=ax)
-    plt.show()
-    plt.savefig("temp.pdf")
+    #fig, ax = plt.subplots(figsize=(30, 30))
+    #plot_tree(final_model, num_trees=4, ax=ax)
+    #plt.show()
+    #plt.savefig("temp.pdf")
 
     #mlflow.sklearn.log_model(prep_pipeline, "model_pipeline")
 
