@@ -7,15 +7,13 @@ import pandas as pd
 from sklearn.feature_extraction import DictVectorizer
 
 from sklearn.pipeline import make_pipeline
-from sklearn.pipeline import Pipeline
+from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.compose import ColumnTransformer, make_column_transformer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from toolz import compose
 
-from src.data.download import get_datapath as get_datapath
-from src.data.download import DataPath
 
 target = 'Survived'
 categorical = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
@@ -50,47 +48,47 @@ def get_preprocessing_config():
     transforms = []
     target = 'Survived'
     categorical = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
-    numerical = ['Fare']
+    numerical = ['Fare', "Age"]
 
     return transforms, target, categorical, numerical
 
 
-def create_preprocessing_pipeline():
+# try to use FeatureUnion to make more complicated pipeline
+# https://github.com/autoreleasefool/rumoureval/blob/042e2a01142391c32f6c3c67f51316ec3fac39e0/rumoureval/classification/sdqc.py
+def create_preprocessing_pipeline_for_dict():
     transforms, target, categorical, numerical = get_preprocessing_config()
     pipeline = make_pipeline(
         DictVectorizer()
     )
     return pipeline
 
-def create_preprocessing_pipeline_new():
+
+def create_preprocessing_pipeline_for_df():
     transforms, target, categorical, numerical = get_preprocessing_config()
 
-    numeric_preprocessor = Pipeline([
-            ("imputation_mean", SimpleImputer(missing_values=np.nan, strategy="mean")),
-            ("scaler", StandardScaler())
-        ]
-    )
+    # numerical pipeline
+    cat_pipe = Pipeline([
+        ('imputer', SimpleImputer(strategy='constant', fill_value='missing')),
+        ('encoder', OneHotEncoder(handle_unknown='ignore', sparse=False))
+    ])
 
-    categorical_preprocessor = Pipeline([
-            ("imputation_constant", SimpleImputer(fill_value="missing", strategy="constant")),
-            ("onehot", OneHotEncoder(handle_unknown="ignore"))
-        ]
-    )
+    # Define numerical pipeline
+    num_pipe = Pipeline([
+        ("imputation_mean", SimpleImputer(missing_values=np.nan, strategy="mean")),
+        ('scaler', StandardScaler())
+    ])
 
-    preprocessor = make_column_transformer(
-            (categorical_preprocessor, categorical),
-            (numeric_preprocessor, numerical)
-    )
+    preprocessor = ColumnTransformer([
+        ('cat', cat_pipe, categorical),
+        ('num', num_pipe, numerical)
+    ])
 
-    pipe = make_pipeline(
-         DictVectorizer(), preprocessor
-    )
+    pipe = Pipeline([
+        #('dv', DictVectorizer()),
+        ('preprocessor', preprocessor)
+    ])
 
-    #pipeline = make_pipeline(
-     #   DictVectorizer()
-    #)
     return pipe
-
 
 def save_preprocessed(df: pd.DataFrame, path):
     df.to_csv(path)
@@ -108,7 +106,7 @@ def preprocess_df(df: pd.DataFrame, transforms, categorical, numerical):
     # Apply in-between transformations
     df = compose(*transforms[::-1])(df)
     # For dict vectorizer: int = ignored, str = one-hot
-    df[categorical] = df[categorical].fillna(-1).astype("category")
+    df[categorical] = df[categorical].fillna("-1").astype("str")
 
     return df
 
@@ -118,10 +116,9 @@ def preprocess_train(df_train):
     df_train = preprocess_df(df_train, transforms, categorical, numerical)
 
     #
-    pipeline = create_preprocessing_pipeline()
+    pipeline = create_preprocessing_pipeline_for_df()
     print(pipeline)
-    train_dicts = prepare_dictionaries(df_train)
-    X_train = pipeline.fit_transform(train_dicts)
+    X_train = pipeline.fit_transform(df_train)
 
     #
 
@@ -134,8 +131,8 @@ def preprocess_valid(df_val, preprocessing_pipeline):
 
     df_val = preprocess_df(df_val, transforms, categorical, numerical)
 
-    val_dicts = prepare_dictionaries(df_val)
-    X_val = preprocessing_pipeline.transform(val_dicts)
+    #val_dicts = prepare_dictionaries(df_val)
+    X_val = preprocessing_pipeline.transform(df_val)
 
     y_val = df_val[target].values
 
@@ -146,19 +143,11 @@ def preprocess_test(df_test, preprocessing_pipeline):
 
     df_test = preprocess_df(df_test, transforms, categorical, numerical)
 
-    test_dicts = prepare_dictionaries(df_test)
-    X_test = preprocessing_pipeline.transform(test_dicts)
+    #test_dicts = prepare_dictionaries(df_test)
+    X_test = preprocessing_pipeline.transform(df_test)
 
     return X_test
 
-def preprocess_test_no_pipeline(df_test):
-    transforms, target, categorical, numerical = get_preprocessing_config()
-
-    df_test = preprocess_df(df_test, transforms, categorical, numerical)
-
-    test_dicts = prepare_dictionaries(df_test)
-
-    return test_dicts
 
 def preprocess_all(df_train, df_val):
     X_train, y_train, prep_pipeline = preprocess_train(df_train)

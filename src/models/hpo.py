@@ -154,13 +154,19 @@ def fit_booster_model(params, train, valid):
         dtrain=train,
         num_boost_round=1000,
         evals=[(valid, 'validation')],
-        early_stopping_rounds=50
+        early_stopping_rounds=50,
+        verbose_eval=100
     )
     return booster
 
 def train_model_xgboost_search(train, valid, y_val, max_evals):
 
     mlflow.xgboost.autolog(disable=True)
+
+    train_eval_params = {
+        'objective': 'binary:logistic',
+        'eval_metric': 'auc'
+    }
 
     def objective(params):
         with mlflow.start_run(nested=True):
@@ -191,10 +197,12 @@ def train_model_xgboost_search(train, valid, y_val, max_evals):
         'gamma': hp.loguniform('gamma', -10, 10),
         'alpha': hp.loguniform('alpha', -10, 10),
         'lambda': hp.loguniform('lambda', -10, 10),
-        'objective': 'binary:logistic',
-        'eval_metric': 'auc',
+        #'objective': 'binary:logistic',
+        #'eval_metric': 'auc',
         'seed': 42,
     }
+    search_space = search_space | train_eval_params
+
 
     best_params = fmin(
         fn=objective,
@@ -207,11 +215,11 @@ def train_model_xgboost_search(train, valid, y_val, max_evals):
 
     print(f'best_params: {best_params}')
     #mlflow.log_dict(best_params, "best_params.json")
+    best_params_extra = best_params.copy()
+    best_params_extra = best_params_extra | train_eval_params
 
     mlflow.xgboost.autolog()
-    final_model = fit_booster_model(best_params, train, valid)
-
-    #prep_pipeline.steps.append(['xgboost_model', final_model])
+    final_model = fit_booster_model(best_params_extra, train, valid)
 
     mlflow.xgboost.log_model(final_model, "models_pickle")
 

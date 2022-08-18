@@ -10,12 +10,11 @@ from flask import Flask, request, jsonify
 import boto3
 import pickle
 from src.features.build_features import preprocess_test
-from src.features.build_features import preprocess_test_no_pipeline
 from src.features.build_features import all_columns
 
 app = Flask('survivorship-prediction')
 
-DEFAULT_RUN_ID = '565ab3ce6de44b45ac0d67244887b837'
+DEFAULT_RUN_ID = '236d76d507b343b69bc755385d9a017f'
 RUN_ID = os.getenv('RUN_ID', DEFAULT_RUN_ID)
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'mlflow-enkidupal-experiments')
 
@@ -37,8 +36,9 @@ def create_features(json):
     return df
 
 
-def calculate_predict(df: pd.DataFrame):
-    dicts = preprocess_test(df, preprocessor)
+#def calculate_predict(df: pd.DataFrame):
+def calculate_predict(raw_dicts, df: pd.DataFrame):
+    X_test = preprocess_test(df, preprocessor)
 
     ###
     # returns dictionary, since model expects its
@@ -47,7 +47,9 @@ def calculate_predict(df: pd.DataFrame):
     ###
     print(model)
 
-    predictions = model.predict(dicts).tolist()
+    print(f'raw_dicts:{raw_dicts}', type(raw_dicts))
+
+    predictions = model.predict(X_test).tolist()
     result = {
         'predictions': list(predictions)
     }
@@ -59,8 +61,9 @@ def calculate_predict(df: pd.DataFrame):
 @app.route('/predict', methods=['POST'])
 def predict():
     json = request.get_json()
+    print(json, type(json))
     features = create_features(json)
-    return calculate_predict(features)
+    return calculate_predict(json, features)
 
 
 if __name__ == "__main__":
