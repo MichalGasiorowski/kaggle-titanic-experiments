@@ -7,7 +7,7 @@ WORKDIR /app
 
 COPY [ "Pipfile", "Pipfile.lock", "setup.py", "./" ]
 
-RUN pipenv install --system --deploy --verbose
+RUN pipenv install --system --deploy
 
 COPY [ "src/", "/app/src" ]
 
@@ -19,5 +19,5 @@ WORKDIR /app
 
 ENV PYTHONPATH "${PYTHONPATH}:/app:/app/src"
 
-#ENTRYPOINT [ "gunicorn", "--bind=0.0.0.0:9696", "predict:app" ]
-ENTRYPOINT [ "sleep", "3600" ]
+ENTRYPOINT [ "gunicorn", "--bind=0.0.0.0:9696", "src.models.predict:app" ]
+#ENTRYPOINT [ "sleep", "3600" ]
