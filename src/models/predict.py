@@ -12,7 +12,7 @@ import pickle
 from src.features.build_features import preprocess_test
 from src.features.build_features import all_columns
 
-app = Flask('survivorship-prediction')
+app = Flask('titanic-survivorship-prediction')
 
 DEFAULT_RUN_ID = '236d76d507b343b69bc755385d9a017f'
 RUN_ID = os.getenv('RUN_ID', DEFAULT_RUN_ID)

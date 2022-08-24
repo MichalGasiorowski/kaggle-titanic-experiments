@@ -5,7 +5,7 @@ RUN pip install pipenv
 
 WORKDIR /app
 
-COPY [ "Pipfile", "Pipfile.lock", "setup.py", "./" ]
+COPY [ "src/docker/predict/Pipfile", "src/docker/predict/Pipfile.lock", "setup.py", "./" ]
 
 RUN pipenv install --system --deploy
 
