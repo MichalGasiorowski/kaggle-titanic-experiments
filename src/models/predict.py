@@ -58,8 +58,10 @@ def calculate_predict(df: pd.DataFrame):
     print(model)
 
     predictions = model.predict(X_test).tolist()
+    decisions = [1 if p >= 0.5 else 0 for p in predictions ]
     result = {
-        'predictions': list(predictions)
+        'predictions': list(predictions),
+        'decisions': list(decisions)
     }
 
     return jsonify(result)
