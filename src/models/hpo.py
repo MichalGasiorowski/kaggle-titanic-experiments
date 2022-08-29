@@ -35,10 +35,11 @@ sys.path.append('../')
 
 from src.data.download import run as download_run
 from src.data.download import get_datapath as get_datapath
-from src.data.download import DataPath
 
 from src.features.build_features import preprocess_df
 from src.features.build_features import preprocess_all
+from src.features.build_features import preprocess_train
+from src.features.build_features import preprocess_valid
 
 def load_pickle(filename: str):
     with open(filename, "rb") as f_in:
@@ -82,7 +83,7 @@ def fit_rfc_model(params, X_train, y_train):
     model.fit(X_train, y_train)
     return model
 
-def train_model_rfc_search(X_train, y_train, X_valid, y_val, max_evals):
+def train_model_rfc_search(X_train, y_train, X_valid, y_val, X_train_full, max_evals):
 
     mlflow.sklearn.autolog(disable=True)
     def objective(params):
@@ -106,7 +107,6 @@ def train_model_rfc_search(X_train, y_train, X_valid, y_val, max_evals):
         return {'loss': -auc_score, 'status': STATUS_OK}
 
     search_space={
-                #'n_estimators': hp.randint('n_estimators', 200, 1000),
                 'n_estimators': hp.randint('n_estimators', 100, 1000),
                 'max_depth': hp.randint('max_depth', 5, 40),
                 'min_samples_split': hp.uniform('min_samples_split', 2, 8),
@@ -159,7 +159,7 @@ def fit_booster_model(params, train, valid):
     )
     return booster
 
-def train_model_xgboost_search(train, valid, y_val, max_evals):
+def train_model_xgboost_search(train, valid, y_val, train_full, max_evals):
 
     mlflow.xgboost.autolog(disable=True)
 
@@ -250,9 +250,17 @@ def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models
 
         external_train_path=datapath.get_train_file_path(datapath._external_train_dirpath)
 
-        df_train, df_val = split_train_read(external_train_path, val_size=0.2, random_state=42)
+        df_train_full = read_data(external_train_path)
+        #df_train, df_val = split_train_read(external_train_path, val_size=0.2, random_state=42)
+        df_train, df_val = train_test_split(df_train_full, test_size=0.2, random_state=42)
 
         X_train, X_val, y_train, y_val, prep_pipeline = preprocess_all(df_train, df_val)
+        #X_train_full, y_train_full, prep_pipeline_full = preprocess_valid(df_train_full)
+        X_train_full = np.concatenate([X_train, X_val], axis=0)
+        y_train_full = np.concatenate([y_train, y_val], axis=0)
+        print(X_train_full[:6])
+        print(y_train_full[:50])
+
         with open(f'{models_path}/preprocessor.b', "wb") as f_out:
             pickle.dump(prep_pipeline, f_out)
         mlflow.log_artifact(f'{models_path}/preprocessor.b', artifact_path="preprocessor")
@@ -260,9 +268,11 @@ def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models
         if model == 'xgboost':
             train = xgb.DMatrix(X_train, label=y_train)
             valid = xgb.DMatrix(X_val, label=y_val)
-            train_model_xgboost_search(train, valid, y_val, max_evals)
+            train_full = xgb.DMatrix(X_train_full, label=y_train_full)
+
+            train_model_xgboost_search(train, valid, y_val, train_full, max_evals)
         elif model == 'rfc':
-            train_model_rfc_search(X_train, y_train, X_val, y_val, max_evals)
+            train_model_rfc_search(X_train, y_train, X_val, y_val, X_train_full, max_evals)
 
 
 if __name__ == '__main__':
