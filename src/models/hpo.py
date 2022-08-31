@@ -6,7 +6,6 @@ import sys
 
 import time
 
-from sklearn.feature_extraction import DictVectorizer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import roc_auc_score
@@ -22,6 +21,7 @@ import pandas as pd
 import numpy as np
 from toolz import compose
 import pickle
+import json
 
 from xgboost import plot_tree
 import matplotlib.pyplot as plt
@@ -40,6 +40,8 @@ from src.features.build_features import preprocess_df
 from src.features.build_features import preprocess_all
 from src.features.build_features import preprocess_train
 from src.features.build_features import preprocess_valid
+
+from src.util.json_encoder import NpEncoder
 
 def load_pickle(filename: str):
     with open(filename, "rb") as f_in:
@@ -83,7 +85,7 @@ def fit_rfc_model(params, X_train, y_train):
     model.fit(X_train, y_train)
     return model
 
-def train_model_rfc_search(X_train, y_train, X_valid, y_val, X_train_full, max_evals):
+def train_model_rfc_search(X_train, y_train, X_valid, y_val, X_train_full, max_evals, models_path):
 
     mlflow.sklearn.autolog(disable=True)
     def objective(params):
@@ -129,6 +131,10 @@ def train_model_rfc_search(X_train, y_train, X_valid, y_val, X_train_full, max_e
     sp_eval = space_eval(search_space, best_params)
     print(f'sp_eval: {sp_eval}')
 
+    with open(f'{models_path}/best_params.b', "wb") as f_out:
+        pickle.dump(best_params, f_out)
+    mlflow.log_artifact(f'{models_path}/best_params.b', artifact_path="best_params")
+
     #dict_best_params = dict(best_params)
     #print(f'dict_best_params: {dict_best_params}')
 
@@ -159,7 +165,7 @@ def fit_booster_model(params, train, valid):
     )
     return booster
 
-def train_model_xgboost_search(train, valid, y_val, train_full, max_evals):
+def train_model_xgboost_search(train, valid, y_val, train_full, max_evals, models_path):
 
     mlflow.xgboost.autolog(disable=True)
 
@@ -189,7 +195,6 @@ def train_model_xgboost_search(train, valid, y_val, train_full, max_evals):
     search_space = {
         # hp.choice('max_depth', np.arange(1, 14, dtype=int))
         'learning_rate': hp.loguniform('learning_rate', -7, 0),
-        #'max_depth': scope.int(hp.uniform('max_depth', 1, 100)),
         'max_depth': hp.choice('max_depth', np.arange(1, 14, dtype=int)),
         'min_child_weight': hp.loguniform('min_child_weight', -2, 3),
         'subsample': hp.uniform('subsample', 0.5, 1),
@@ -203,8 +208,7 @@ def train_model_xgboost_search(train, valid, y_val, train_full, max_evals):
     }
     search_space = search_space | train_eval_params
 
-
-    best_params = fmin(
+    best_hyperparams = fmin(
         fn=objective,
         space=search_space,
         algo=tpe.suggest,
@@ -213,13 +217,17 @@ def train_model_xgboost_search(train, valid, y_val, train_full, max_evals):
         trials=Trials()
     )
 
-    print(f'best_params: {best_params}')
+    print(f'best_hyperparams: {best_hyperparams}')
     #mlflow.log_dict(best_params, "best_params.json")
-    best_params_extra = best_params.copy()
-    best_params_extra = best_params_extra | train_eval_params
+    best_hyperparams_extra = best_hyperparams.copy()
+    best_hyperparams_extra = best_hyperparams_extra | train_eval_params
+
+    with open(f'{models_path}/best_hyperparams.json', 'w', encoding='utf-8') as f_out:
+        json.dump(best_hyperparams_extra, f_out, ensure_ascii=False, indent=4, cls=NpEncoder)
+    mlflow.log_artifact(f'{models_path}/best_hyperparams.json' )
 
     mlflow.xgboost.autolog()
-    final_model = fit_booster_model(best_params_extra, train, valid)
+    final_model = fit_booster_model(best_hyperparams_extra, train, valid)
 
     mlflow.xgboost.log_model(final_model, "models_pickle")
 
@@ -237,7 +245,7 @@ def train_model_xgboost_search(train, valid, y_val, train_full, max_evals):
     #acc = accuracy_score(y_val, y_pred)
     #mlflow.log_metric("accuracy", acc)
 
-    return best_params
+    return best_hyperparams
 
 def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models_path: str, model: str, max_evals: str):
     mlflow.set_tracking_uri(mlflow_tracking_uri)
@@ -258,8 +266,6 @@ def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models
         #X_train_full, y_train_full, prep_pipeline_full = preprocess_valid(df_train_full)
         X_train_full = np.concatenate([X_train, X_val], axis=0)
         y_train_full = np.concatenate([y_train, y_val], axis=0)
-        print(X_train_full[:6])
-        print(y_train_full[:50])
 
         with open(f'{models_path}/preprocessor.b', "wb") as f_out:
             pickle.dump(prep_pipeline, f_out)
@@ -270,9 +276,9 @@ def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models
             valid = xgb.DMatrix(X_val, label=y_val)
             train_full = xgb.DMatrix(X_train_full, label=y_train_full)
 
-            train_model_xgboost_search(train, valid, y_val, train_full, max_evals)
+            train_model_xgboost_search(train, valid, y_val, train_full, max_evals, models_path)
         elif model == 'rfc':
-            train_model_rfc_search(X_train, y_train, X_val, y_val, X_train_full, max_evals)
+            train_model_rfc_search(X_train, y_train, X_val, y_val, X_train_full, max_evals, models_path)
 
 
 if __name__ == '__main__':
@@ -280,7 +286,7 @@ if __name__ == '__main__':
     parser.add_argument(
         "--data_root",
         default='../../data',
-        help="The location where the external Titanic data is downloaded"
+        help="The location where the external data is downloaded"
     )
     parser.add_argument(
         "--models_path",
@@ -300,7 +306,7 @@ if __name__ == '__main__':
     parser.add_argument(
         "--model",
         default="xgboost",
-        help="Model for HyperOptimization"
+        help="Model for HPO"
     )
     parser.add_argument(
         "--max_evals",

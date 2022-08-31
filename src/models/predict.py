@@ -14,18 +14,19 @@ from src.features.build_features import all_columns
 
 app = Flask('titanic-survivorship-prediction')
 
-DEFAULT_RUN_ID = '236d76d507b343b69bc755385d9a017f'
+DEFAULT_RUN_ID = 'fd24e498ac574dc6b6a41f1a8b4fdaee'
 RUN_ID = os.getenv('RUN_ID', DEFAULT_RUN_ID)
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'mlflow-enkidupal-experiments')
+DEFAULT_EXPERIMENT_NUMBER = 2
+EXPERIMENT_NUMBER = os.getenv('EXPERIMENT_NUMBER', DEFAULT_EXPERIMENT_NUMBER)
 
-
-model_s3_path = f's3://{BUCKET_NAME}/1/{RUN_ID}/artifacts/models_pickle/'
+model_s3_path = f's3://{BUCKET_NAME}/{EXPERIMENT_NUMBER}/{RUN_ID}/artifacts/model/'
 
 model = mlflow.pyfunc.load_model(model_s3_path)
 
 s3client = boto3.client('s3')
 
-response = s3client.get_object(Bucket=BUCKET_NAME, Key=f'1/{RUN_ID}/artifacts/preprocessor/preprocessor.b')
+response = s3client.get_object(Bucket=BUCKET_NAME, Key=f'{EXPERIMENT_NUMBER}/{RUN_ID}/artifacts/preprocessor/preprocessor.b')
 
 body = response['Body'].read()
 preprocessor = pickle.loads(body)

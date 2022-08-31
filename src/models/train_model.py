@@ -2,10 +2,9 @@ import argparse
 import os
 import sys
 
-from sklearn.feature_extraction import DictVectorizer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
-
+from sklearn.metrics import roc_auc_score
 
 import mlflow
 
@@ -13,11 +12,12 @@ import pandas as pd
 import numpy as np
 from toolz import compose
 import pickle
+import json
 
 from sklearn.model_selection import train_test_split
 
 MLFLOW_DEFAULT_TRACKING_URI="http://0.0.0.0:5000"
-MLFLOW_DEFAULT_EXPERIMENT="titanic-experiment"
+MLFLOW_DEFAULT_EXPERIMENT="titanic-train-experiment"
 
 sys.path.append('../')
 
@@ -25,8 +25,33 @@ from src.data.download import run as download_run
 from src.data.download import get_datapath as get_datapath
 from src.data.download import DataPath
 
+import xgboost as xgb
+
+
+import boto3
 from src.features.build_features import preprocess_df
-from src.features.build_features import extract_target
+from src.features.build_features import preprocess_all
+from src.features.build_features import preprocess_train
+from src.features.build_features import preprocess_valid
+
+
+DEFAULT_RUN_ID = '991e896e9ae742cca6c600b007223523'
+RUN_ID = os.getenv('RUN_ID', DEFAULT_RUN_ID)
+
+DEFAULT_BUCKET_NAME = os.getenv('BUCKET_NAME', 'mlflow-enkidupal-experiments')
+DEFAULT_KEY = f'1/{RUN_ID}/artifacts/best_hyperparams.json'
+
+
+def get_params_s3(bucket, key):
+
+    s3client = boto3.client('s3')
+    response = s3client.get_object(Bucket=bucket, Key=key)
+
+    body = response['Body'].read()
+
+    params = json.loads(body)
+    print(params)
+    return params
 
 def load_pickle(filename: str):
     with open(filename, "rb") as f_in:
@@ -55,63 +80,77 @@ def dump_pickle(obj, filename):
     with open(filename, "wb") as f_out:
         return pickle.dump(obj, f_out)
 
-def preprocess_all(df_train, df_val):
-    transforms = []
-    target = 'Survived'
-    categorical = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
-    numerical = ['Fare']
-
-    df_train = preprocess_df(df_train, transforms, categorical, numerical)
-    df_val = preprocess_df(df_val, transforms, categorical, numerical)
-
-    dv = DictVectorizer()
-    train_dicts = df_train[categorical + numerical].to_dict(orient='records')
-    X_train = dv.fit_transform(train_dicts)
-
-    val_dicts = df_val[categorical + numerical].to_dict(orient='records')
-    X_val = dv.transform(val_dicts)
-
-    y_train = df_train[target].values
-    y_val = df_val[target].values
-
-    return X_train, X_val, y_train, y_val, dv
 
 
-def train(datapath: DataPath, models_path: str):
+def fit_booster_model(params, train, valid):
+    booster = xgb.train(
+        params=params,
+        dtrain=train,
+        num_boost_round=2000,
+        evals=[(valid, 'validation')],
+        early_stopping_rounds=50,
+        verbose_eval=10
+    )
+    return booster
+
+def train_xgb(train, valid, y_val, hyper_params):
+    mlflow.xgboost.autolog()
+    final_model = fit_booster_model(hyper_params, train, valid)
+
+    y_pred = final_model.predict(valid)
+    auc_score = roc_auc_score(y_val, y_pred)
+    mlflow.log_metric("valid_auc_score", auc_score)
+
+    return final_model
+
+def train(datapath: DataPath, models_path: str, model: str, hyper_params_path: str, hyper_params_bucket_name: str, hyper_params_key: str ):
     external_train_path=datapath.get_train_file_path(datapath._external_train_dirpath)
 
     df_train, df_val = split_train_read(external_train_path, val_size=0.2, random_state=42)
 
-    X_train, X_val, y_train, y_val, dv = preprocess_all(df_train, df_val)
-
-    model = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=1)
-
-    model.fit(X_train, y_train)
+    X_train, X_val, y_train, y_val, prep_pipeline = preprocess_all(df_train, df_val)
 
     with open(f'{models_path}/preprocessor.b', "wb") as f_out:
-        pickle.dump(dv, f_out)
+        pickle.dump(prep_pipeline, f_out)
     mlflow.log_artifact(f'{models_path}/preprocessor.b', artifact_path="preprocessor")
-    mlflow.sklearn.log_model(model, artifact_path="models_pickle")
 
-    y_pred = model.predict(X_val)
+    hyper_params = get_params_s3(hyper_params_bucket_name, hyper_params_key)
 
-    accuracy = np.round(accuracy_score(y_val, y_pred), 4)
-    mlflow.log_metric("accuracy", accuracy)
+    if model == 'xgboost':
+        train = xgb.DMatrix(X_train, label=y_train)
+        valid = xgb.DMatrix(X_val, label=y_val)
+        #train_full = xgb.DMatrix(X_train_full, label=y_train_full)
 
-    print(accuracy)
+        final_model = train_xgb(train, valid, y_val, hyper_params)
+        return final_model
+    elif model == 'rfc':
+        mlflow.sklearn.autolog()
+        model = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=1)
+
+        model.fit(X_train, y_train)
+
+        mlflow.sklearn.log_model(model, artifact_path="models_pickle")
+
+        y_pred = model.predict(X_val)
+
+        accuracy = np.round(accuracy_score(y_val, y_pred), 4)
+        mlflow.log_metric("accuracy", accuracy)
+
+        print(accuracy)
 
 
-def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models_path: str):
+def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models_path: str, model: str, hyper_params_path: str, hyper_params_bucket_name: str, hyper_params_key: str):
     mlflow.set_tracking_uri(mlflow_tracking_uri)
     print(f"tracking URI: '{mlflow.get_tracking_uri()}'")
     mlflow.set_experiment(mlflow_experiment)
-    mlflow.sklearn.autolog()
+
 
     with mlflow.start_run():
         datapath = get_datapath(data_root)
         download_run(data_root, 'titanic')
 
-        train(datapath=datapath, models_path=models_path)
+        train(datapath=datapath, models_path=models_path, model=model,
+            hyper_params_path=hyper_params_path, hyper_params_bucket_name=hyper_params_bucket_name, hyper_params_key=hyper_params_key)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -135,7 +174,30 @@ if __name__ == '__main__':
         default=MLFLOW_DEFAULT_EXPERIMENT,
         help="Mlflow experiment"
     )
+    parser.add_argument(
+        "--model",
+        default="xgboost",
+        help="Model for Training"
+    )
+    parser.add_argument(
+        "--hyper_params_path",
+        default='',
+        help="Hyper Params Path"
+    )
+    parser.add_argument(
+        "--hyper_params_bucket_name",
+        default=DEFAULT_BUCKET_NAME,
+        help="Hyper Params Bucket Name"
+    )
+    parser.add_argument(
+        "--hyper_params_key",
+        default=DEFAULT_KEY,
+        help="Hyper Parmas for Training"
+    )
+
 
     args = parser.parse_args()
 
-    run(args.data_root, args.mlflow_tracking_uri, args.mlflow_experiment, args.models_path)
+    run(data_root=args.data_root, mlflow_tracking_uri=args.mlflow_tracking_uri, mlflow_experiment=args.mlflow_experiment,
+        models_path=args.models_path, model= args.model, hyper_params_path=args.hyper_params_path,
+        hyper_params_bucket_name=args.hyper_params_bucket_name, hyper_params_key=args.hyper_params_key)
