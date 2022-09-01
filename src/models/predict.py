@@ -14,10 +14,10 @@ from src.features.build_features import all_columns
 
 app = Flask('titanic-survivorship-prediction')
 
-DEFAULT_RUN_ID = 'fd24e498ac574dc6b6a41f1a8b4fdaee'
+DEFAULT_RUN_ID = '37d3f6ee72d2410e92aa4add16a78454'
 RUN_ID = os.getenv('RUN_ID', DEFAULT_RUN_ID)
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'mlflow-enkidupal-experiments')
-DEFAULT_EXPERIMENT_NUMBER = 2
+DEFAULT_EXPERIMENT_NUMBER = 1
 EXPERIMENT_NUMBER = os.getenv('EXPERIMENT_NUMBER', DEFAULT_EXPERIMENT_NUMBER)
 
 model_s3_path = f's3://{BUCKET_NAME}/{EXPERIMENT_NUMBER}/{RUN_ID}/artifacts/model/'
