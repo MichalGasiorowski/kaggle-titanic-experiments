@@ -154,16 +154,51 @@ def train_model_rfc_search(X_train, y_train, X_valid, y_val, X_train_full, max_e
     return best_params
 
 
-def fit_booster_model(params, train, valid):
+def fit_booster_model(params, train, valid, early_stopping_rounds=3, num_boost_round=1000):
+    es = xgb.callback.EarlyStopping(
+        rounds=early_stopping_rounds,
+        min_delta=1e-3,
+        save_best=True,
+        maximize=False,
+        data_name="validation",
+        metric_name="auc"
+    )
+
     booster = xgb.train(
         params=params,
         dtrain=train,
-        num_boost_round=1000,
+        num_boost_round=num_boost_round,
         evals=[(valid, 'validation')],
-        early_stopping_rounds=50,
-        verbose_eval=100
+        #early_stopping_rounds=early_stopping_rounds,
+        verbose_eval=5,
+        callbacks = [es]
+
     )
     return booster
+
+class SaveBestModel(xgb.callback.TrainingCallback):
+    def __init__(self, cvboosters):
+        self._cvboosters = cvboosters
+
+    def after_training(self, model):
+        self._cvboosters[:] = [cvpack.bst for cvpack in model.cvfolds]
+        return model
+
+def fit_cv_booster_model(params, full_train, early_stopping_rounds=10):
+    cvboosters = []
+    eval_history = xgb.cv(
+        params=params,
+        dtrain=full_train,
+        nfold=5,
+        num_boost_round=1000,
+        metrics=["auc"],
+        shuffle=True,
+        verbose_eval=5,
+        maximize=True,
+        early_stopping_rounds=early_stopping_rounds,
+        callbacks=[SaveBestModel(cvboosters)]
+    )
+    return cvboosters, eval_history
 
 def train_model_xgboost_search(train, valid, y_val, train_full, max_evals, models_path):
 
@@ -173,15 +208,19 @@ def train_model_xgboost_search(train, valid, y_val, train_full, max_evals, model
         'objective': 'binary:logistic',
         'eval_metric': 'auc'
     }
+    active_run = mlflow.active_run()
 
     def objective(params):
         with mlflow.start_run(nested=True):
             mlflow.set_tag("model", "xgboost")
+            mlflow.set_tag("kind", "hpo")
+            mlflow.set_tag("uber_run_id", active_run.info.run_id)
+
             mlflow.log_params(params)
             # Train model and record run time
             start_time = time.time()
 
-            booster = fit_booster_model(params, train, valid)
+            booster = fit_booster_model(params, train, valid, early_stopping_rounds=10)
 
             run_time = time.time() - start_time
             mlflow.log_metric('runtime', run_time)
@@ -195,7 +234,8 @@ def train_model_xgboost_search(train, valid, y_val, train_full, max_evals, model
     search_space = {
         # hp.choice('max_depth', np.arange(1, 14, dtype=int))
         'learning_rate': hp.loguniform('learning_rate', -7, 0),
-        'max_depth': hp.choice('max_depth', np.arange(1, 14, dtype=int)),
+        #'n_round': scope.int(hp.quniform('n_round', 200, 3000, 100)),
+        'max_depth': hp.choice('max_depth', np.arange(1, 6, dtype=int)),
         'min_child_weight': hp.loguniform('min_child_weight', -2, 3),
         'subsample': hp.uniform('subsample', 0.5, 1),
         'colsample_bytree': hp.uniform('colsample_bytree', 0.5, 1),
@@ -208,13 +248,17 @@ def train_model_xgboost_search(train, valid, y_val, train_full, max_evals, model
     }
     search_space = search_space | train_eval_params
 
+    #spark_trials = SparkTrials()
+    trials=Trials()
+
     best_hyperparams = fmin(
         fn=objective,
         space=search_space,
         algo=tpe.suggest,
         max_evals=int(max_evals),
         #early_stop_fn=hyperopt.early_stop.no_progress_loss(10),
-        trials=Trials()
+        trials=trials,
+        max_queue_len=5
     )
 
     print(f'best_hyperparams: {best_hyperparams}')
@@ -227,7 +271,10 @@ def train_model_xgboost_search(train, valid, y_val, train_full, max_evals, model
     mlflow.log_artifact(f'{models_path}/best_hyperparams.json' )
 
     mlflow.xgboost.autolog()
-    final_model = fit_booster_model(best_hyperparams_extra, train, valid)
+
+    print(f'best_hyperparams_extra: {best_hyperparams_extra}')
+    cvboosters, eval_history = fit_cv_booster_model(best_hyperparams_extra, train_full, early_stopping_rounds=10)
+    final_model = cvboosters[0]
 
     mlflow.xgboost.log_model(final_model, "models_pickle")
 
