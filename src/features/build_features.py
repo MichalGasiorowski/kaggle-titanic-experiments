@@ -9,7 +9,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.compose import ColumnTransformer, make_column_transformer
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, KBinsDiscretizer
 
 from toolz import compose
 
@@ -74,7 +74,8 @@ def create_preprocessing_pipeline_for_df():
     # Define numerical pipeline
     num_pipe = Pipeline([
         ("imputation_mean", SimpleImputer(missing_values=np.nan, strategy="mean")),
-        ('scaler', StandardScaler())
+        ('binner', KBinsDiscretizer(n_bins=6))
+        #('scaler', StandardScaler())
     ])
 
     preprocessor = ColumnTransformer([
