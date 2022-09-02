@@ -159,7 +159,7 @@ def fit_booster_model(params, train, valid, early_stopping_rounds=3, num_boost_r
         rounds=early_stopping_rounds,
         min_delta=1e-3,
         save_best=True,
-        maximize=False,
+        maximize=True,
         data_name="validation",
         metric_name="auc"
     )
@@ -176,6 +176,16 @@ def fit_booster_model(params, train, valid, early_stopping_rounds=3, num_boost_r
     )
     return booster
 
+def fit_booster_model_no_validation(params, train, num_boost_round=1000):
+    booster = xgb.train(
+        params=params,
+        dtrain=train,
+        num_boost_round=num_boost_round,
+        #early_stopping_rounds=early_stopping_rounds,
+        verbose_eval=5,
+    )
+    return booster
+
 class SaveBestModel(xgb.callback.TrainingCallback):
     def __init__(self, cvboosters):
         self._cvboosters = cvboosters
@@ -184,12 +194,13 @@ class SaveBestModel(xgb.callback.TrainingCallback):
         self._cvboosters[:] = [cvpack.bst for cvpack in model.cvfolds]
         return model
 
-def fit_cv_booster_model(params, full_train, early_stopping_rounds=10):
+def fit_cv_booster_model(params, full_train, nfold=5, early_stopping_rounds=10):
+    mlflow.xgboost.autolog()
     cvboosters = []
     eval_history = xgb.cv(
         params=params,
         dtrain=full_train,
-        nfold=5,
+        nfold=nfold,
         num_boost_round=1000,
         metrics=["auc"],
         shuffle=True,
@@ -270,13 +281,29 @@ def train_model_xgboost_search(train, valid, y_val, train_full, max_evals, model
         json.dump(best_hyperparams_extra, f_out, ensure_ascii=False, indent=4, cls=NpEncoder)
     mlflow.log_artifact(f'{models_path}/best_hyperparams.json' )
 
+    # obtain idea numer of iteration for final training, using K-Fold Training
+    with mlflow.start_run(nested=True):
+        mlflow.set_tag("model", "xgboost")
+        mlflow.set_tag("kind", "cv")
+        mlflow.set_tag("uber_run_id", active_run.info.run_id)
+        cv_early_stopping_rounds = 5
+        nfold = 5
+
+        cvboosters, eval_history = fit_cv_booster_model(best_hyperparams_extra, train_full, nfold=nfold, early_stopping_rounds=cv_early_stopping_rounds)
+
+        best_nrounds = eval_history.shape[0] - cv_early_stopping_rounds
+        best_nrounds = int(best_nrounds / (1 - 1/nfold))
+
+        print(f'besteval_history.shape[0]: {eval_history.shape[0]}, cv_early_stopping_rounds: {cv_early_stopping_rounds}')
+        print(f'best_nrounds: {best_nrounds}')
+
+    #train final model with correct number of rounds, no Early stoppping full train dataset
     mlflow.xgboost.autolog()
 
-    print(f'best_hyperparams_extra: {best_hyperparams_extra}')
-    cvboosters, eval_history = fit_cv_booster_model(best_hyperparams_extra, train_full, early_stopping_rounds=10)
-    final_model = cvboosters[0]
+    final_model = fit_booster_model_no_validation(best_hyperparams_extra, train_full, num_boost_round=best_nrounds)
 
-    mlflow.xgboost.log_model(final_model, "models_pickle")
+    print(final_model)
+    print(final_model.attributes())
 
     #fig, ax = plt.subplots(figsize=(30, 30))
     #plot_tree(final_model, num_trees=4, ax=ax)

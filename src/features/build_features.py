@@ -16,7 +16,7 @@ from toolz import compose
 
 target = 'Survived'
 categorical = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
-numerical = ['Fare']
+numerical = ['Fare', "Age"]
 
 all_columns = categorical + numerical
 
@@ -92,6 +92,7 @@ def create_preprocessing_pipeline_for_df():
 
 def save_preprocessed(df: pd.DataFrame, path):
     df.to_csv(path)
+
 
 def prepare_dictionaries(df: pd.DataFrame):
 
