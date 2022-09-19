@@ -5,14 +5,12 @@ import os
 import mlflow
 
 import pandas as pd
-from flask import Flask, request, jsonify
 
 import boto3
 import pickle
 from src.features.build_features import preprocess_test
 from src.features.build_features import all_columns
 
-app = Flask('titanic-survivorship-prediction')
 
 DEFAULT_RUN_ID = '21cf301e4e7f459bae86218626159897'
 RUN_ID = os.getenv('RUN_ID', DEFAULT_RUN_ID)
@@ -65,26 +63,8 @@ def calculate_predict(df: pd.DataFrame):
         'decisions': list(decisions)
     }
 
-    return jsonify(result)
+    return result
 
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    json = request.get_json()
-    print(json)
-    features = create_features(json)
-    return calculate_predict(features)
-
-@app.route('/predict_from_path', methods=['POST'])
-def predict_from_path():
-    json = request.get_json()
-    print(json)
-    path = json['path']
-    df = read_data(path)
-
-    return calculate_predict(df)
-
-if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=9696)
 
 

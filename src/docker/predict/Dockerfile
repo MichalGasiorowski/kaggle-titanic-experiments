@@ -19,5 +19,4 @@ WORKDIR /app
 
 ENV PYTHONPATH "${PYTHONPATH}:/app:/app/src"
 
-ENTRYPOINT [ "gunicorn", "--bind=0.0.0.0:9696", "src.models.predict:app" ]
-#ENTRYPOINT [ "sleep", "3600" ]
+ENTRYPOINT [ "gunicorn", "--bind=0.0.0.0:9696", "src.models.predict_rest:app" ]
