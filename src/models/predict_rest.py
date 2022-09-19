@@ -14,7 +14,7 @@ def predict():
     print(json)
     features = create_features(json)
     predictions = calculate_predict(features)
-    return jsonify(predictions)
+    return dict(predictions)
 
 @app.route('/predict_from_path', methods=['POST'])
 def predict_from_path():
