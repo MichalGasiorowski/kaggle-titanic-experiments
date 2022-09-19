@@ -2,7 +2,7 @@
 
 ( build it in at project root level directory )
 
-`docker build -f src/docker/predict/Dockerfile -t titanic-experiment-predict:v1 `
+`docker build -f src/docker/predict/Dockerfile -t titanic-experiment-predict:v1 .`
 
 `docker run -it --rm \
 -p 9696:9696 \
@@ -11,6 +11,14 @@
 -v /home/michal/.aws/credentials:/root/.aws/credentials:ro \
 titanic-experiment-predict:v1`
 
+
+To test it locally:
+run from src/models : 
+
+`python test_predict.py`
+
+or, using curl:
+`curl -X POST -H "User-Agent: python-requests/2.28.1" -H "Accept-Encoding: gzip, deflate" -H "Accept: */*" -H "Connection: keep-alive" -H "Content-Length: 98" -H "Content-Type: application/json" --data-binary "[{\"Age\": 45, \"Sex\": \"female\", \"Pclass\": 0, \"Embarked\": \"C\", \"SibSp\": 1, \"Parch\": 4, \"Fare\": 1111}]" http://localhost:9696/predict`
 
 
 #### To create AWS Elastic BeanStalk config :
@@ -43,16 +51,16 @@ Got URI:
 492542893717.dkr.ecr.eu-north-1.amazonaws.com/titanic-survival-serving
 
 Get authorization token :
-`aws ecr get-login-password --region eu-north-1`
+`AUTH_TOKEN=$(aws ecr get-login-password --region eu-north-1)`
 -> get encrypted token
 
 #### Query ECR API and pipeline to docker login:
 
-` aws ecr --region <region> | docker login -u AWS -p <encrypted_token> <repo_uri>`
+` aws ecr --region <region> | docker login -u AWS -p $AUTH_TOKEN <repo_uri>`
 
 
 
-`aws ecr --region eu-north-1 | docker login -u AWS -p <encrypted_token> 492542893717.dkr.ecr.eu-north-1.amazonaws.com/titanic-survival-serving`
+`aws ecr --region eu-north-1 | docker login -u AWS -p $AUTH_TOKEN 492542893717.dkr.ecr.eu-north-1.amazonaws.com/titanic-survival-serving`
 
 
 #### Tag local docker image :
@@ -61,4 +69,6 @@ Get authorization token :
 
 `docker tag titanic-experiment-predict:v1 492542893717.dkr.ecr.eu-north-1.amazonaws.com/titanic-survival-serving`
 
+Push to ECR:
 
+`docker push 492542893717.dkr.ecr.eu-north-1.amazonaws.com/titanic-survival-serving:latest`

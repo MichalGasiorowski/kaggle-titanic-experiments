@@ -1,4 +1,15 @@
 import requests
+import curlify
+
+def curlify_request(req):
+    command = "curl -X {method} -H {headers} -d '{data}' '{uri}'"
+    method = req.method
+    uri = req.url
+    data = req.body
+    headers = ['"{0}: {1}"'.format(k, v) for k, v in req.headers.items()]
+    headers = " -H ".join(headers)
+    return command.format(method=method, headers=headers, data=data, uri=uri)
+
 
 passenger_X = {
     "Age": 45,
@@ -37,13 +48,19 @@ url = 'http://localhost:9696/predict'
 response = requests.post(url, json=[passenger_X]) # 1-element list, since the list is expected
 print(response.json())
 
-response = requests.post(url, json=two_passengers)
-print(response.json())
+req = response.request
+curlified_request = curlify_request(req)
+
+print(curlified_request)
 
 
-test_path_json = {
-    'path': '../../data/external/test/test.csv'
-}
+#response = requests.post(url, json=two_passengers)
+#print(response.json())
+
+
+#test_path_json = {
+#    'path': '../../data/external/test/test.csv'
+#}
 
 #path_url = 'http://localhost:9696/predict_from_path'
 
