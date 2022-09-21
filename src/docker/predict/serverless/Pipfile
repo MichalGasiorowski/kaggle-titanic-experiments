@@ -1,0 +1,24 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+mlflow = "*"
+scikit-learn = "*"
+pandas = "*"
+fastparquet = "*"
+prefect = "==2.0b5"
+#kaggle = "*"
+#src = {editable = true, file = "file:///home/michal/Projects/kaggle-titanic-experiments"}
+xgboost = "*"
+click = "*"
+sphinx = "*"
+awscli = "*"
+python-dotenv = ">=0.5.1"
+
+[dev-packages]
+awsebcli = "*"
+
+[requires]
+python_version = "3.9"
