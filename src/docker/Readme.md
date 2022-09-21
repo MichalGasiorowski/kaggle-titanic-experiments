@@ -1,4 +1,4 @@
-#### To build service docker container & run it locally:
+****#### To build service docker container & run it locally:
 
 ( build it in at project root level directory )
 
@@ -107,3 +107,56 @@ Get authorization token :
 Push to ECR:
 
 `docker push 492542893717.dkr.ecr.eu-north-1.amazonaws.com/titanic-survival-serving:latest`
+
+To create lambda function on AWS:
+
+Go to Lambda -> Functions -> Create function :
+* Choose Container Image as option
+* Provide function name
+* Choose image URI from ECR
+* Change Execution Role with AmazonS3ReadOnlyAccess access to s3 buckets where trained model was saved
+To test it, go to Test -> pass example Event JSON: 
+```
+{
+  "data": [
+    {
+      "Age": 45,
+      "Sex": "female",
+      "Pclass": 0,
+      "Embarked": "C",
+      "SibSp": 1,
+      "Parch": 4,
+      "Fare": 1111
+    }
+  ]
+}
+```
+Connect function to AWS API Gateway : 
+* Go to API Gateway -> Create API
+* Choose REST API
+* Choose New API, name of API
+* Create new Resource, method ( POST ):
+* *  add permision to invoke lambda function
+* Test API : go -> Test, pass 
+```
+"Content-Type: application/json"
+``` 
+as header and:
+```
+{
+  "data": [
+    {
+      "Age": 45,
+      "Sex": "female",
+      "Pclass": 0,
+      "Embarked": "C",
+      "SibSp": 1,
+      "Parch": 4,
+      "Fare": 1111
+    }
+  ]
+}
+```
+as request body
+First call to API could be slow, since lambda function will spin up lambda container.
+
