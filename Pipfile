@@ -28,6 +28,9 @@ gunicorn = "*"
 [dev-packages]
 awsebcli = "*"
 curlify = "*"
+pylint = "*"
+black = "*"
+isort = "*"
 
 [requires]
-python_version = "3.10"
+python_version = "3.9"
