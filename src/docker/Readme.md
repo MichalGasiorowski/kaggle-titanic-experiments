@@ -160,3 +160,13 @@ as header and:
 as request body
 First call to API could be slow, since lambda function will spin up lambda container.
 
+Deploy API to test stage and get Invoke URL
+The new API can be access from the outside with curl:
+```
+curl \
+-X POST \
+-H "Content-Type: application/json" \
+-d '{"data": [ { "Age": 45, "Sex": "female", "Pclass": 0, "Embarked": "C", "SibSp": 1, "Parch": 4, "Fare": 1111 } ]}' \
+https://kn30jp4wic.execute-api.eu-north-1.amazonaws.com/test/predict
+```
+
