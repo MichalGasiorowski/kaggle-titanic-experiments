@@ -1,38 +1,29 @@
-import argparse
 import os
 import sys
-
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import roc_auc_score
-
-import mlflow
-
-import pandas as pd
-import numpy as np
-from toolz import compose
-import pickle
 import json
+import pickle
+import logging
+import argparse
 
+import boto3
+import numpy as np
+import mlflow
+import xgboost as xgb
+from sklearn.metrics import roc_auc_score, accuracy_score
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
+
+from src.data.read import read_data
+from src.data.download import DataPath
+from src.data.download import run as download_run
+from src.data.download import get_datapath
+from src.features.build_features import preprocess_all
+from src.features.build_features import get_all_columns
 
 MLFLOW_DEFAULT_TRACKING_URI="http://0.0.0.0:5000"
 MLFLOW_DEFAULT_EXPERIMENT="titanic-train-experiment"
 
 sys.path.append('../')
-
-from src.data.download import run as download_run
-from src.data.download import get_datapath as get_datapath
-from src.data.download import DataPath
-
-import xgboost as xgb
-
-
-import boto3
-from src.features.build_features import preprocess_df
-from src.features.build_features import preprocess_all
-from src.features.build_features import preprocess_train
-from src.features.build_features import preprocess_valid
 
 
 DEFAULT_RUN_ID = '991e896e9ae742cca6c600b007223523'
@@ -57,29 +48,18 @@ def load_pickle(filename: str):
     with open(filename, "rb") as f_in:
         return pickle.load(f_in)
 
-def read_data(filename):
-    """Return processed features dict and target."""
-
-    # Load dataset
-    if filename.endswith('parquet'):
-        df = pd.read_parquet(filename)
-    elif filename.endswith('csv'):
-        df = pd.read_csv(filename)
-    else:
-        raise "Error: not supported file format."
-
-    return df
 
 def split_train_read(filename: str, val_size=0.2, random_state=42):
-    df_train_full = read_data(filename)
+    df_train_full = read_data(filename, get_all_columns())
 
-    df_train, df_val = train_test_split(df_train_full, test_size=val_size, random_state=random_state)
+    df_train, df_val = train_test_split(df_train_full,
+                                        test_size=val_size,
+                                        random_state=random_state)
     return df_train, df_val
 
 def dump_pickle(obj, filename):
     with open(filename, "wb") as f_out:
         return pickle.dump(obj, f_out)
-
 
 
 def fit_booster_model(params, train, valid):
@@ -93,6 +73,7 @@ def fit_booster_model(params, train, valid):
     )
     return booster
 
+
 def train_xgb(train, valid, y_val, hyper_params):
     mlflow.xgboost.autolog()
     final_model = fit_booster_model(hyper_params, train, valid)
@@ -103,8 +84,10 @@ def train_xgb(train, valid, y_val, hyper_params):
 
     return final_model
 
-def train(datapath: DataPath, models_path: str, model: str, hyper_params_path: str, hyper_params_bucket_name: str, hyper_params_key: str ):
-    external_train_path=datapath.get_train_file_path(datapath._external_train_dirpath)
+
+def run_train(datapath: DataPath, models_path: str, model_type: str,
+            hyper_params_path: str, hyper_params_bucket_name: str, hyper_params_key: str):
+    external_train_path=datapath.get_train_file_path(datapath.external_train_dirpath)
 
     df_train, df_val = split_train_read(external_train_path, val_size=0.2, random_state=42)
 
@@ -114,32 +97,37 @@ def train(datapath: DataPath, models_path: str, model: str, hyper_params_path: s
         pickle.dump(prep_pipeline, f_out)
     mlflow.log_artifact(f'{models_path}/preprocessor.b', artifact_path="preprocessor")
 
+    logging.info(f'hyper_params_path: {hyper_params_path}')
     hyper_params = get_params_s3(hyper_params_bucket_name, hyper_params_key)
 
-    if model == 'xgboost':
+    if model_type == 'xgboost':
         train = xgb.DMatrix(X_train, label=y_train)
         valid = xgb.DMatrix(X_val, label=y_val)
         #train_full = xgb.DMatrix(X_train_full, label=y_train_full)
 
         final_model = train_xgb(train, valid, y_val, hyper_params)
         return final_model
-    elif model == 'rfc':
+    if model_type == 'rfc':
         mlflow.sklearn.autolog()
-        model = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=1)
+        final_model = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=1)
 
-        model.fit(X_train, y_train)
+        final_model.fit(X_train, y_train)
 
-        mlflow.sklearn.log_model(model, artifact_path="models_pickle")
+        mlflow.sklearn.log_model(final_model, artifact_path="models_pickle")
 
-        y_pred = model.predict(X_val)
+        y_pred = final_model.predict(X_val)
 
         accuracy = np.round(accuracy_score(y_val, y_pred), 4)
         mlflow.log_metric("accuracy", accuracy)
 
         print(accuracy)
+        return final_model
 
+    raise TypeError(f'Unrecognized model type for training: {model_type}')
 
-def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models_path: str, model: str, hyper_params_path: str, hyper_params_bucket_name: str, hyper_params_key: str):
+def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str,
+        models_path: str, model: str,
+        hyper_params_path: str, hyper_params_bucket_name: str, hyper_params_key: str):
     mlflow.set_tracking_uri(mlflow_tracking_uri)
     print(f"tracking URI: '{mlflow.get_tracking_uri()}'")
     mlflow.set_experiment(mlflow_experiment)
@@ -149,8 +137,11 @@ def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models
         datapath = get_datapath(data_root)
         download_run(data_root, 'titanic')
 
-        train(datapath=datapath, models_path=models_path, model=model,
-            hyper_params_path=hyper_params_path, hyper_params_bucket_name=hyper_params_bucket_name, hyper_params_key=hyper_params_key)
+        run_train(datapath=datapath, models_path=models_path, model_type=model,
+                hyper_params_path=hyper_params_path,
+                hyper_params_bucket_name=hyper_params_bucket_name,
+                hyper_params_key=hyper_params_key)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -198,6 +189,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    run(data_root=args.data_root, mlflow_tracking_uri=args.mlflow_tracking_uri, mlflow_experiment=args.mlflow_experiment,
-        models_path=args.models_path, model= args.model, hyper_params_path=args.hyper_params_path,
-        hyper_params_bucket_name=args.hyper_params_bucket_name, hyper_params_key=args.hyper_params_key)
+    run(data_root=args.data_root, mlflow_tracking_uri=args.mlflow_tracking_uri,
+        mlflow_experiment=args.mlflow_experiment, models_path=args.models_path,
+        model= args.model, hyper_params_path=args.hyper_params_path,
+        hyper_params_bucket_name=args.hyper_params_bucket_name,
+        hyper_params_key=args.hyper_params_key)

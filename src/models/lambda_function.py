@@ -1,7 +1,4 @@
-
-from src.models.predict import calculate_predict
-from src.models.predict import read_data
-from src.models.predict import create_features
+from src.models.predict import create_features, calculate_predict
 
 
 def lambda_handler(event, context):
@@ -11,5 +8,3 @@ def lambda_handler(event, context):
     predictions = calculate_predict(features)
 
     return dict(predictions)
-
-

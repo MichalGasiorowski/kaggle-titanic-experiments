@@ -1,70 +1,47 @@
-import argparse
-import os
-
-import hyperopt.early_stop
-import sys
-
-import time
-
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import roc_auc_score
-
-import xgboost as xgb
-
-from hyperopt import fmin, tpe, hp, STATUS_OK, Trials, space_eval
-from hyperopt.pyll import scope
-
-import mlflow
-
-import pandas as pd
-import numpy as np
-from toolz import compose
-import pickle
 import json
+import time
+#from toolz import compose
+import pickle
+import logging
+import argparse
 
-from xgboost import plot_tree
-import matplotlib.pyplot as plt
-
+import numpy as np
+import mlflow
+import xgboost as xgb
+from hyperopt import STATUS_OK, Trials, hp, tpe, fmin, space_eval
+from sklearn.metrics import roc_auc_score, accuracy_score
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
-MLFLOW_DEFAULT_TRACKING_URI="http://0.0.0.0:5000"
-MLFLOW_DEFAULT_EXPERIMENT="titanic-experiment"
-
-sys.path.append('../')
-
+from src.data.read import read_data
 from src.data.download import run as download_run
-from src.data.download import get_datapath as get_datapath
-
-from src.features.build_features import preprocess_df
-from src.features.build_features import preprocess_all
-from src.features.build_features import preprocess_train
-from src.features.build_features import preprocess_valid
-
+from src.data.download import get_datapath
 from src.util.json_encoder import NpEncoder
+from src.features.build_features import preprocess_all
+from src.features.build_features import get_all_columns
+
+#from hyperopt.pyll import scope
+
+# sys.path.append('../')
+
+
+
+MLFLOW_DEFAULT_TRACKING_URI = "http://0.0.0.0:5000"
+MLFLOW_DEFAULT_EXPERIMENT = "titanic-experiment"
+
 
 def load_pickle(filename: str):
     with open(filename, "rb") as f_in:
         return pickle.load(f_in)
 
-def read_data(filename):
-    """Return processed features dict and target."""
-
-    # Load dataset
-    if filename.endswith('parquet'):
-        df = pd.read_parquet(filename)
-    elif filename.endswith('csv'):
-        df = pd.read_csv(filename)
-    else:
-        raise "Error: not supported file format."
-
-    return df
 
 def split_train_read(filename: str, val_size=0.2, random_state=42):
-    df_train_full = read_data(filename)
+    df_train_full = read_data(filename, columns=get_all_columns())
 
-    df_train, df_val = train_test_split(df_train_full, test_size=val_size, random_state=random_state)
+    df_train, df_val = train_test_split(df_train_full,
+                                        test_size=val_size, random_state=random_state)
     return df_train, df_val
+
 
 def dump_pickle(obj, filename):
     with open(filename, "wb") as f_out:
@@ -72,22 +49,23 @@ def dump_pickle(obj, filename):
 
 
 def fit_rfc_model(params, X_train, y_train):
-    n_estimators=int(params['n_estimators'])
-    max_depth=int(params['max_depth'])
-    min_samples_leaf=int(params['min_samples_leaf'])
-    min_samples_split=int(params['min_samples_split'])
-    criterion=params['criterion']
-    max_features=params['max_features']
+    n_estimators = int(params['n_estimators'])
+    max_depth = int(params['max_depth'])
+    min_samples_leaf = int(params['min_samples_leaf'])
+    min_samples_split = int(params['min_samples_split'])
+    criterion = params['criterion']
+    max_features = params['max_features']
     model = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
-                                    min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split,
-                                    criterion=criterion, max_features=max_features,
-                                    n_jobs=1, random_state=42)
+                min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split,
+                criterion=criterion, max_features=max_features,
+                n_jobs=1, random_state=42)
     model.fit(X_train, y_train)
     return model
 
-def train_model_rfc_search(X_train, y_train, X_valid, y_val, X_train_full, max_evals, models_path):
 
+def train_model_rfc_search(X_train, y_train, X_valid, y_val, X_train_full, max_evals, models_path): #pylint: disable=unused-argument
     mlflow.sklearn.autolog(disable=True)
+
     def objective(params):
         with mlflow.start_run(nested=True):
             mlflow.set_tag("model", "rfc")
@@ -101,21 +79,21 @@ def train_model_rfc_search(X_train, y_train, X_valid, y_val, X_train_full, max_e
             mlflow.log_metric('runtime', run_time)
 
             y_pred = model.predict(X_valid)
-            auc_score = roc_auc_score(y_val, y_pred)
-            mlflow.log_metric("auc_score", auc_score)
-            #acc = accuracy_score(y_val, y_pred)
-            #mlflow.log_metric("accuracy", acc)
+            auc_score_calculated:float = roc_auc_score(y_val, y_pred)
+            mlflow.log_metric("auc_score", auc_score_calculated)
+            # acc = accuracy_score(y_val, y_pred)
+            # mlflow.log_metric("accuracy", acc)
 
-        return {'loss': -auc_score, 'status': STATUS_OK}
+        return { 'loss': auc_score_calculated * (-1), 'status': STATUS_OK }
 
-    search_space={
-                'n_estimators': hp.randint('n_estimators', 100, 1000),
-                'max_depth': hp.randint('max_depth', 5, 40),
-                'min_samples_split': hp.uniform('min_samples_split', 2, 8),
-                'min_samples_leaf': hp.randint('min_samples_leaf', 1, 10),
-                'criterion': hp.choice('criterion', ['gini','entropy']),
-                'max_features': hp.choice('max_features', ['sqrt', 'log2'])
-                }
+    search_space = {
+        'n_estimators': hp.randint('n_estimators', 100, 1000),
+        'max_depth': hp.randint('max_depth', 5, 40),
+        'min_samples_split': hp.uniform('min_samples_split', 2, 8),
+        'min_samples_leaf': hp.randint('min_samples_leaf', 1, 10),
+        'criterion': hp.choice('criterion', ['gini', 'entropy']),
+        'max_features': hp.choice('max_features', ['sqrt', 'log2']),
+    }
 
     best_params = fmin(
         fn=objective,
@@ -123,7 +101,7 @@ def train_model_rfc_search(X_train, y_train, X_valid, y_val, X_train_full, max_e
         algo=tpe.suggest,
         max_evals=int(max_evals),
         rstate=np.random.default_rng(42),
-        #early_stop_fn=hyperopt.early_stop.no_progress_loss(20)
+        # early_stop_fn=hyperopt.early_stop.no_progress_loss(20)
         trials=Trials()
     )
     print(f'best_params: {best_params}')
@@ -135,10 +113,10 @@ def train_model_rfc_search(X_train, y_train, X_valid, y_val, X_train_full, max_e
         pickle.dump(best_params, f_out)
     mlflow.log_artifact(f'{models_path}/best_params.b', artifact_path="best_params")
 
-    #dict_best_params = dict(best_params)
-    #print(f'dict_best_params: {dict_best_params}')
+    # dict_best_params = dict(best_params)
+    # print(f'dict_best_params: {dict_best_params}')
 
-    #mlflow.log_dict(dict_best_params, "best_params.json")
+    # mlflow.log_dict(dict_best_params, "best_params.json")
 
     mlflow.sklearn.autolog()
     best_model = fit_rfc_model(sp_eval, X_train, y_train)
@@ -169,22 +147,24 @@ def fit_booster_model(params, train, valid, early_stopping_rounds=3, num_boost_r
         dtrain=train,
         num_boost_round=num_boost_round,
         evals=[(valid, 'validation')],
-        #early_stopping_rounds=early_stopping_rounds,
+        # early_stopping_rounds=early_stopping_rounds,
         verbose_eval=5,
-        callbacks = [es]
+        callbacks=[es]
 
     )
     return booster
+
 
 def fit_booster_model_no_validation(params, train, num_boost_round=1000):
     booster = xgb.train(
         params=params,
         dtrain=train,
         num_boost_round=num_boost_round,
-        #early_stopping_rounds=early_stopping_rounds,
+        # early_stopping_rounds=early_stopping_rounds,
         verbose_eval=5,
     )
     return booster
+
 
 class SaveBestModel(xgb.callback.TrainingCallback):
     def __init__(self, cvboosters):
@@ -193,6 +173,7 @@ class SaveBestModel(xgb.callback.TrainingCallback):
     def after_training(self, model):
         self._cvboosters[:] = [cvpack.bst for cvpack in model.cvfolds]
         return model
+
 
 def fit_cv_booster_model(params, full_train, nfold=5, early_stopping_rounds=10):
     mlflow.xgboost.autolog()
@@ -211,8 +192,8 @@ def fit_cv_booster_model(params, full_train, nfold=5, early_stopping_rounds=10):
     )
     return cvboosters, eval_history
 
-def train_model_xgboost_search(train, valid, y_val, train_full, max_evals, models_path):
 
+def train_model_xgboost_search(train, valid, y_val, train_full, max_evals, models_path):
     mlflow.xgboost.autolog(disable=True)
 
     train_eval_params = {
@@ -237,15 +218,15 @@ def train_model_xgboost_search(train, valid, y_val, train_full, max_evals, model
             mlflow.log_metric('runtime', run_time)
 
             y_pred = booster.predict(valid)
-            auc_score = roc_auc_score(y_val, y_pred)
+            auc_score_calculated:float = roc_auc_score(y_val, y_pred)
             mlflow.log_metric("auc_score", auc_score)
 
-        return {'loss': -auc_score, 'status': STATUS_OK, 'booster': booster.attributes()}
+        return {'loss': auc_score_calculated * (-1), 'status': STATUS_OK, 'booster': booster.attributes()}
 
     search_space = {
         # hp.choice('max_depth', np.arange(1, 14, dtype=int))
         'learning_rate': hp.loguniform('learning_rate', -7, 0),
-        #'n_round': scope.int(hp.quniform('n_round', 200, 3000, 100)),
+        # 'n_round': scope.int(hp.quniform('n_round', 200, 3000, 100)),
         'max_depth': hp.choice('max_depth', np.arange(1, 6, dtype=int)),
         'min_child_weight': hp.loguniform('min_child_weight', -2, 3),
         'subsample': hp.uniform('subsample', 0.5, 1),
@@ -253,33 +234,33 @@ def train_model_xgboost_search(train, valid, y_val, train_full, max_evals, model
         'gamma': hp.loguniform('gamma', -10, 10),
         'alpha': hp.loguniform('alpha', -10, 10),
         'lambda': hp.loguniform('lambda', -10, 10),
-        #'objective': 'binary:logistic',
-        #'eval_metric': 'auc',
+        # 'objective': 'binary:logistic',
+        # 'eval_metric': 'auc',
         'seed': 42,
     }
     search_space = search_space | train_eval_params
 
-    #spark_trials = SparkTrials()
-    trials=Trials()
+    # spark_trials = SparkTrials()
+    trials = Trials()
 
     best_hyperparams = fmin(
         fn=objective,
         space=search_space,
         algo=tpe.suggest,
         max_evals=int(max_evals),
-        #early_stop_fn=hyperopt.early_stop.no_progress_loss(10),
+        # early_stop_fn=hyperopt.early_stop.no_progress_loss(10),
         trials=trials,
         max_queue_len=5
     )
 
     print(f'best_hyperparams: {best_hyperparams}')
-    #mlflow.log_dict(best_params, "best_params.json")
+    # mlflow.log_dict(best_params, "best_params.json")
     best_hyperparams_extra = best_hyperparams.copy()
     best_hyperparams_extra = best_hyperparams_extra | train_eval_params
 
     with open(f'{models_path}/best_hyperparams.json', 'w', encoding='utf-8') as f_out:
         json.dump(best_hyperparams_extra, f_out, ensure_ascii=False, indent=4, cls=NpEncoder)
-    mlflow.log_artifact(f'{models_path}/best_hyperparams.json' )
+    mlflow.log_artifact(f'{models_path}/best_hyperparams.json')
 
     # obtain idea numer of iteration for final training, using K-Fold Training
     with mlflow.start_run(nested=True):
@@ -289,37 +270,35 @@ def train_model_xgboost_search(train, valid, y_val, train_full, max_evals, model
         cv_early_stopping_rounds = 5
         nfold = 5
 
-        cvboosters, eval_history = fit_cv_booster_model(best_hyperparams_extra, train_full, nfold=nfold, early_stopping_rounds=cv_early_stopping_rounds)
+        _, eval_history = fit_cv_booster_model(best_hyperparams_extra,
+                                                 train_full, nfold=nfold,
+                                                 early_stopping_rounds=cv_early_stopping_rounds)
 
         best_nrounds = eval_history.shape[0] - cv_early_stopping_rounds
-        best_nrounds = int(best_nrounds / (1 - 1/nfold))
+        best_nrounds = int(best_nrounds / (1 - 1 / nfold))
 
-        print(f'besteval_history.shape[0]: {eval_history.shape[0]}, cv_early_stopping_rounds: {cv_early_stopping_rounds}')
-        print(f'best_nrounds: {best_nrounds}')
+        logging.info(f'besteval_history.shape[0]: {eval_history.shape[0]}, '
+                     f'cv_early_stopping_rounds: {cv_early_stopping_rounds}')
+        logging.info(f'best_nrounds: {best_nrounds}')
 
-    #train final model with correct number of rounds, no Early stoppping full train dataset
+    # train final model with correct number of rounds, no Early stoppping full train dataset
     mlflow.xgboost.autolog()
 
-    final_model = fit_booster_model_no_validation(best_hyperparams_extra, train_full, num_boost_round=best_nrounds)
+    final_model = fit_booster_model_no_validation(best_hyperparams_extra,
+                                                  train_full, num_boost_round=best_nrounds)
 
     print(final_model)
     print(final_model.attributes())
-
-    #fig, ax = plt.subplots(figsize=(30, 30))
-    #plot_tree(final_model, num_trees=4, ax=ax)
-    #plt.show()
-    #plt.savefig("temp.pdf")
-
-    #mlflow.sklearn.log_model(prep_pipeline, "model_pipeline")
 
     y_pred = final_model.predict(valid)
     auc_score = roc_auc_score(y_val, y_pred)
     mlflow.log_metric("valid_auc_score", auc_score)
 
-    #acc = accuracy_score(y_val, y_pred)
-    #mlflow.log_metric("accuracy", acc)
+    # acc = accuracy_score(y_val, y_pred)
+    # mlflow.log_metric("accuracy", acc)
 
     return best_hyperparams
+
 
 def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models_path: str, model: str, max_evals: str):
     mlflow.set_tracking_uri(mlflow_tracking_uri)
@@ -330,14 +309,14 @@ def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models
         datapath = get_datapath(data_root)
         download_run(data_root, 'titanic')
 
-        external_train_path=datapath.get_train_file_path(datapath._external_train_dirpath)
+        external_train_path = datapath.get_train_file_path(datapath.external_train_dirpath)
 
-        df_train_full = read_data(external_train_path)
-        #df_train, df_val = split_train_read(external_train_path, val_size=0.2, random_state=42)
+        df_train_full = read_data(external_train_path, get_all_columns())
+        # df_train, df_val = split_train_read(external_train_path, val_size=0.2, random_state=42)
         df_train, df_val = train_test_split(df_train_full, test_size=0.2, random_state=42)
 
         X_train, X_val, y_train, y_val, prep_pipeline = preprocess_all(df_train, df_val)
-        #X_train_full, y_train_full, prep_pipeline_full = preprocess_valid(df_train_full)
+        # X_train_full, y_train_full, prep_pipeline_full = preprocess_valid(df_train_full)
         X_train_full = np.concatenate([X_train, X_val], axis=0)
         y_train_full = np.concatenate([y_train, y_val], axis=0)
 

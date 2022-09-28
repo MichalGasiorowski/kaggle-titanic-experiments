@@ -6,11 +6,15 @@ disable = [
     "missing-class-docstring",
     "missing-module-docstring",
     "invalid-name",
-    "too-few-public-methods"
+    "too-few-public-methods",
+    "logging-fstring-interpolation"
 ]
 
+[tool.pylint.FORMAT]
+max-line-length=120
+
 [tool.black]
-line-length = 88
+line-length = 120
 target-version = ['py39']
 skip-string-normalization = true
 

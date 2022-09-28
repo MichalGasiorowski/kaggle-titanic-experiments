@@ -1,8 +1,9 @@
-import argparse
 import os
 import os.path
+import argparse
 
-import mlflow
+DEFAULT_KAGGLE_COMPETITION='titanic'
+
 
 class DataPath:
     def __init__(self, _data_root: str):
@@ -24,11 +25,51 @@ class DataPath:
         self._processed_valid_dirpath = os.path.join(self._data_root_processed, "valid")
         self._processed_test_dirpath = os.path.join(self._data_root_processed, "test")
 
+    @property
+    def data_root(self):
+        return self._data_root
+    @property
+    def data_root_external(self):
+        return self._data_root_external
+    @property
+    def data_root_interim(self):
+        return self._data_root_interim
+    @property
+    def data_root_raw(self):
+        return self._data_root_raw
+    @property
+    def data_root_processed(self):
+        return self._data_root_processed
+    @property
+    def external_train_dirpath(self):
+        return self._external_train_dirpath
+    @property
+    def external_test_dirpath(self):
+        return self._external_test_dirpath
+    @property
+    def raw_train_dirpath(self):
+        return self._raw_train_dirpath
+    @property
+    def raw_valid_dirpath(self):
+        return self._raw_valid_dirpath
+    @property
+    def raw_test_dirpath(self):
+        return self._raw_test_dirpath
+    @property
+    def processed_train_dirpath(self):
+        return self._processed_train_dirpath
+    @property
+    def processed_valid_dirpath(self):
+        return self._processed_valid_dirpath
+    @property
+    def processed_test_dirpath(self):
+        return self._processed_test_dirpath
+
     def make_dirs(self):
-        for directory in (self._data_root_interim,
-                          self._external_train_dirpath, self._external_test_dirpath,
-                          self._raw_train_dirpath, self._raw_valid_dirpath, self._raw_test_dirpath,
-                          self._processed_train_dirpath, self._processed_valid_dirpath, self._processed_test_dirpath):
+        for directory in (self.data_root_interim,
+                          self.external_train_dirpath, self.external_test_dirpath,
+                          self.raw_train_dirpath, self.raw_valid_dirpath, self.raw_test_dirpath,
+                          self.processed_train_dirpath, self.processed_valid_dirpath, self.processed_test_dirpath):
             os.makedirs(directory, exist_ok=True)
 
     def get_train_file_path(self, dir_root):
@@ -43,15 +84,15 @@ def get_datapath(_data_root):
     return DataPath(_data_root=_data_root)
 
 def download_and_copy_data(data_path: DataPath, kaggle_competition: str, force: bool = False):
-    if os.path.exists(f'{data_path._external_train_dirpath}/train.csv') and not force:
+    if os.path.exists(f'{data_path.external_train_dirpath}/train.csv') and not force:
         return
-    os.system(f'kaggle competitions download -c {kaggle_competition} -p {data_path._data_root_external} --force')
-    os.system(f'unzip -o {data_path._data_root_external}/"{kaggle_competition}.zip" -d {data_path._data_root_external}')
-    os.system(f'cp {data_path._data_root_external}/train.csv {data_path._external_train_dirpath}')
-    os.system(f'cp {data_path._data_root_external}/test.csv {data_path._external_test_dirpath}')
+    os.system(f'kaggle competitions download -c {kaggle_competition} -p {data_path.data_root_external} --force')
+    os.system(f'unzip -o {data_path.data_root_external}/"{kaggle_competition}.zip" -d {data_path.data_root_external}')
+    os.system(f'cp {data_path.data_root_external}/train.csv {data_path.external_train_dirpath}')
+    os.system(f'cp {data_path.data_root_external}/test.csv {data_path.external_test_dirpath}')
 
     # clean up
-    os.system(f'rm {data_path._data_root_external}/*.csv {data_path._data_root_external}/*.zip')
+    os.system(f'rm {data_path.data_root_external}/*.csv {data_path.data_root_external}/*.zip')
 
 def run(data_root: str, kaggle_competition: str):
     data_path = get_datapath(data_root)
@@ -63,7 +104,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--kaggle_competition",
-        default='titanic',
+        default=DEFAULT_KAGGLE_COMPETITION,
         help="Kaggle competition"
     )
     parser.add_argument(

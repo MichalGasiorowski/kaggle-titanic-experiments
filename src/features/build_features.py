@@ -1,24 +1,28 @@
-import argparse
 import pickle
+import argparse
 
 import numpy as np
 import pandas as pd
+from toolz import compose
+from sklearn.impute import SimpleImputer
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline, make_pipeline
+#from sklearn.pipeline import FeatureUnion
+from sklearn.preprocessing import (
+    OneHotEncoder,
+    #StandardScaler,
+    KBinsDiscretizer
+)
 from sklearn.feature_extraction import DictVectorizer
 
-from sklearn.pipeline import make_pipeline
-from sklearn.pipeline import FeatureUnion, Pipeline
-from sklearn.impute import SimpleImputer
-from sklearn.compose import ColumnTransformer, make_column_transformer
-from sklearn.preprocessing import OneHotEncoder, StandardScaler, KBinsDiscretizer
+DEFAULT_TARGET = 'Survived'
+DEFAULT_CATEGORICAL = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
+DEFAULT_NUMERICAL = ['Fare', "Age"]
 
-from toolz import compose
+DEFAULT_ALL_COLUMNS = DEFAULT_CATEGORICAL + DEFAULT_NUMERICAL
 
-
-target = 'Survived'
-categorical = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
-numerical = ['Fare', "Age"]
-
-all_columns = categorical + numerical
+def get_all_columns():
+    return DEFAULT_ALL_COLUMNS
 
 
 def dump_pickle(obj, filename):
@@ -26,28 +30,16 @@ def dump_pickle(obj, filename):
         return pickle.dump(obj, f_out)
 
 
-def read_data(filename):
-    """Return processed features dict and target."""
-
-    # Load dataset
-    if filename.endswith('parquet'):
-        df = pd.read_parquet(filename)
-    elif filename.endswith('csv'):
-        df = pd.read_csv(filename)
-    else:
-        raise "Error: not supported file format."
-
-    return df
-
-def extract_target(data: pd.DataFrame, target="Survived"):
+def extract_target(data: pd.DataFrame, target=DEFAULT_TARGET):
     targets = data[target].values
     return targets
 
+
 def get_preprocessing_config():
     transforms = []
-    target = 'Survived'
-    categorical = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
-    numerical = ['Fare', "Age"]
+    target = DEFAULT_TARGET
+    categorical = DEFAULT_CATEGORICAL
+    numerical = DEFAULT_NUMERICAL
 
     return transforms, target, categorical, numerical
 
@@ -55,7 +47,7 @@ def get_preprocessing_config():
 # try to use FeatureUnion to make more complicated pipeline
 # https://github.com/autoreleasefool/rumoureval/blob/042e2a01142391c32f6c3c67f51316ec3fac39e0/rumoureval/classification/sdqc.py
 def create_preprocessing_pipeline_for_dict():
-    transforms, target, categorical, numerical = get_preprocessing_config()
+    transforms, target, categorical, numerical = get_preprocessing_config() #pylint: disable=unused-variable)
     pipeline = make_pipeline(
         DictVectorizer()
     )
@@ -63,7 +55,7 @@ def create_preprocessing_pipeline_for_dict():
 
 
 def create_preprocessing_pipeline_for_df():
-    transforms, target, categorical, numerical = get_preprocessing_config()
+    transforms, target, categorical, numerical = get_preprocessing_config() #pylint: disable=unused-variable)
 
     # numerical pipeline
     cat_pipe = Pipeline([
@@ -90,18 +82,17 @@ def create_preprocessing_pipeline_for_df():
 
     return pipe
 
-def save_preprocessed(df: pd.DataFrame, path):
-    df.to_csv(path)
+
+# def prepare_dictionaries(df: pd.DataFrame):
+#
+#     transforms, target, categorical, numerical = get_preprocessing_config() #pylint: disable=unused-variable
+#
+#     dicts = df[categorical + numerical].to_dict(orient='records')
+#     return dicts
 
 
-def prepare_dictionaries(df: pd.DataFrame):
+def preprocess_df(df: pd.DataFrame, transforms, categorical, numerical): #pylint: disable=unused-argument
 
-    transforms, target, categorical, numerical = get_preprocessing_config()
-
-    dicts = df[categorical + numerical].to_dict(orient='records')
-    return dicts
-
-def preprocess_df(df: pd.DataFrame, transforms, categorical, numerical):
     """Return processed features dict and target."""
 
     # Apply in-between transformations
@@ -128,7 +119,7 @@ def preprocess_train(df_train):
     return X_train, y_train, pipeline
 
 def preprocess_valid(df_val, preprocessing_pipeline):
-    transforms, target, categorical, numerical = get_preprocessing_config()
+    transforms, target, categorical, numerical = get_preprocessing_config() #pylint: disable=unused-variable
 
     df_val = preprocess_df(df_val, transforms, categorical, numerical)
 
@@ -140,7 +131,7 @@ def preprocess_valid(df_val, preprocessing_pipeline):
     return X_val, y_val
 
 def preprocess_test(df_test, preprocessing_pipeline):
-    transforms, target, categorical, numerical = get_preprocessing_config()
+    transforms, target, categorical, numerical = get_preprocessing_config() #pylint: disable=unused-variable)
 
     df_test = preprocess_df(df_test, transforms, categorical, numerical)
 
@@ -158,8 +149,8 @@ def preprocess_all(df_train, df_val):
 
 
 def run(data_root: str, output_path: str):
+    print(f'data_root: {data_root}, output_path: {output_path}')
 
-    pass
 
 def main():
     parser = argparse.ArgumentParser()
@@ -178,4 +169,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

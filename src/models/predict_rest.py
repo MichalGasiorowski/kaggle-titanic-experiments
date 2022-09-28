@@ -1,9 +1,8 @@
+from flask import Flask, request
 
-from flask import Flask, request, jsonify
-
-from src.models.predict import calculate_predict
-from src.models.predict import read_data
-from src.models.predict import create_features
+from src.data.read import read_data
+from src.models.predict import create_features, calculate_predict
+from src.features.build_features import get_all_columns
 
 app = Flask('titanic-survivorship-prediction')
 
@@ -21,7 +20,7 @@ def predict_from_path():
     json = request.get_json()
     print(json)
     path = json['path']
-    df = read_data(path)
+    df = read_data(path, get_all_columns())
 
     return calculate_predict(df)
 
