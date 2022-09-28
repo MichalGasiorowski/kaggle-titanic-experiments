@@ -19,8 +19,9 @@ model = mlflow.pyfunc.load_model(model_s3_path)
 
 s3client = boto3.client('s3')
 
-response = s3client.get_object(Bucket=BUCKET_NAME,
-        Key=f'{EXPERIMENT_NUMBER}/{RUN_ID}/artifacts/preprocessor/preprocessor.b')
+response = s3client.get_object(
+    Bucket=BUCKET_NAME, Key=f'{EXPERIMENT_NUMBER}/{RUN_ID}/artifacts/preprocessor/preprocessor.b'
+)
 
 body = response['Body'].read()
 preprocessor = pickle.loads(body)
@@ -41,10 +42,7 @@ def calculate_predict(df: pd.DataFrame):
     print(model)
 
     predictions = model.predict(X_test).tolist()
-    decisions = [1 if p >= 0.5 else 0 for p in predictions ]
-    result = {
-        'predictions': list(predictions),
-        'decisions': list(decisions)
-    }
+    decisions = [1 if p >= 0.5 else 0 for p in predictions]
+    result = {'predictions': list(predictions), 'decisions': list(decisions)}
 
     return result

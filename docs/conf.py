@@ -169,10 +169,8 @@ htmlhelp_basename = 'kaggle-titanic-experimentsdoc'
 latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
     # 'papersize': 'letterpaper',
-
     # The font size ('10pt', '11pt' or '12pt').
     # 'pointsize': '10pt',
-
     # Additional stuff for the LaTeX preamble.
     # 'preamble': '',
 }
@@ -180,10 +178,13 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-    ('index',
-     'kaggle-titanic-experiments.tex',
-     'kaggle-titanic-experiments Documentation',
-     "MichalGasiorowski", 'manual'),
+    (
+        'index',
+        'kaggle-titanic-experiments.tex',
+        'kaggle-titanic-experiments Documentation',
+        "MichalGasiorowski",
+        'manual',
+    ),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -212,8 +213,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'kaggle-titanic-experiments', 'kaggle-titanic-experiments Documentation',
-     ["MichalGasiorowski"], 1)
+    ('index', 'kaggle-titanic-experiments', 'kaggle-titanic-experiments Documentation', ["MichalGasiorowski"], 1)
 ]
 
 # If true, show URL addresses after external links.
@@ -226,9 +226,15 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    ('index', 'kaggle-titanic-experiments', 'kaggle-titanic-experiments Documentation',
-     "MichalGasiorowski", 'kaggle-titanic-experiments',
-     'A short description of the project.', 'Miscellaneous'),
+    (
+        'index',
+        'kaggle-titanic-experiments',
+        'kaggle-titanic-experiments Documentation',
+        "MichalGasiorowski",
+        'kaggle-titanic-experiments',
+        'A short description of the project.',
+        'Miscellaneous',
+    ),
 ]
 
 # Documents to append as an appendix to all manuals.

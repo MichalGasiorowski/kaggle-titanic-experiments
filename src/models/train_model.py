@@ -20,8 +20,8 @@ from src.data.download import get_datapath
 from src.features.build_features import preprocess_all
 from src.features.build_features import get_all_columns
 
-MLFLOW_DEFAULT_TRACKING_URI="http://0.0.0.0:5000"
-MLFLOW_DEFAULT_EXPERIMENT="titanic-train-experiment"
+MLFLOW_DEFAULT_TRACKING_URI = "http://0.0.0.0:5000"
+MLFLOW_DEFAULT_EXPERIMENT = "titanic-train-experiment"
 
 sys.path.append('../')
 
@@ -44,6 +44,7 @@ def get_params_s3(bucket, key):
     print(params)
     return params
 
+
 def load_pickle(filename: str):
     with open(filename, "rb") as f_in:
         return pickle.load(f_in)
@@ -52,10 +53,9 @@ def load_pickle(filename: str):
 def split_train_read(filename: str, val_size=0.2, random_state=42):
     df_train_full = read_data(filename, get_all_columns())
 
-    df_train, df_val = train_test_split(df_train_full,
-                                        test_size=val_size,
-                                        random_state=random_state)
+    df_train, df_val = train_test_split(df_train_full, test_size=val_size, random_state=random_state)
     return df_train, df_val
+
 
 def dump_pickle(obj, filename):
     with open(filename, "wb") as f_out:
@@ -69,7 +69,7 @@ def fit_booster_model(params, train, valid):
         num_boost_round=2000,
         evals=[(valid, 'validation')],
         early_stopping_rounds=50,
-        verbose_eval=10
+        verbose_eval=10,
     )
     return booster
 
@@ -85,9 +85,15 @@ def train_xgb(train, valid, y_val, hyper_params):
     return final_model
 
 
-def run_train(datapath: DataPath, models_path: str, model_type: str,
-            hyper_params_path: str, hyper_params_bucket_name: str, hyper_params_key: str):
-    external_train_path=datapath.get_train_file_path(datapath.external_train_dirpath)
+def run_train(
+    datapath: DataPath,
+    models_path: str,
+    model_type: str,
+    hyper_params_path: str,
+    hyper_params_bucket_name: str,
+    hyper_params_key: str,
+):
+    external_train_path = datapath.get_train_file_path(datapath.external_train_dirpath)
 
     df_train, df_val = split_train_read(external_train_path, val_size=0.2, random_state=42)
 
@@ -103,7 +109,7 @@ def run_train(datapath: DataPath, models_path: str, model_type: str,
     if model_type == 'xgboost':
         train = xgb.DMatrix(X_train, label=y_train)
         valid = xgb.DMatrix(X_val, label=y_val)
-        #train_full = xgb.DMatrix(X_train_full, label=y_train_full)
+        # train_full = xgb.DMatrix(X_train_full, label=y_train_full)
 
         final_model = train_xgb(train, valid, y_val, hyper_params)
         return final_model
@@ -125,72 +131,57 @@ def run_train(datapath: DataPath, models_path: str, model_type: str,
 
     raise TypeError(f'Unrecognized model type for training: {model_type}')
 
-def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str,
-        models_path: str, model: str,
-        hyper_params_path: str, hyper_params_bucket_name: str, hyper_params_key: str):
+
+def run(
+    data_root: str,
+    mlflow_tracking_uri: str,
+    mlflow_experiment: str,
+    models_path: str,
+    model: str,
+    hyper_params_path: str,
+    hyper_params_bucket_name: str,
+    hyper_params_key: str,
+):
     mlflow.set_tracking_uri(mlflow_tracking_uri)
     print(f"tracking URI: '{mlflow.get_tracking_uri()}'")
     mlflow.set_experiment(mlflow_experiment)
-
 
     with mlflow.start_run():
         datapath = get_datapath(data_root)
         download_run(data_root, 'titanic')
 
-        run_train(datapath=datapath, models_path=models_path, model_type=model,
-                hyper_params_path=hyper_params_path,
-                hyper_params_bucket_name=hyper_params_bucket_name,
-                hyper_params_key=hyper_params_key)
+        run_train(
+            datapath=datapath,
+            models_path=models_path,
+            model_type=model,
+            hyper_params_path=hyper_params_path,
+            hyper_params_bucket_name=hyper_params_bucket_name,
+            hyper_params_key=hyper_params_key,
+        )
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--data_root",
-        default='../../data',
-        help="The location where the external Titanic data is downloaded"
+        "--data_root", default='../../data', help="The location where the external Titanic data is downloaded"
     )
-    parser.add_argument(
-        "--models_path",
-        default='../../models',
-        help="models_path"
-    )
-    parser.add_argument(
-        "--mlflow_tracking_uri",
-        default=MLFLOW_DEFAULT_TRACKING_URI,
-        help="Mlflow tracking uri"
-    )
-    parser.add_argument(
-        "--mlflow_experiment",
-        default=MLFLOW_DEFAULT_EXPERIMENT,
-        help="Mlflow experiment"
-    )
-    parser.add_argument(
-        "--model",
-        default="xgboost",
-        help="Model for Training"
-    )
-    parser.add_argument(
-        "--hyper_params_path",
-        default='',
-        help="Hyper Params Path"
-    )
-    parser.add_argument(
-        "--hyper_params_bucket_name",
-        default=DEFAULT_BUCKET_NAME,
-        help="Hyper Params Bucket Name"
-    )
-    parser.add_argument(
-        "--hyper_params_key",
-        default=DEFAULT_KEY,
-        help="Hyper Parmas for Training"
-    )
-
+    parser.add_argument("--models_path", default='../../models', help="models_path")
+    parser.add_argument("--mlflow_tracking_uri", default=MLFLOW_DEFAULT_TRACKING_URI, help="Mlflow tracking uri")
+    parser.add_argument("--mlflow_experiment", default=MLFLOW_DEFAULT_EXPERIMENT, help="Mlflow experiment")
+    parser.add_argument("--model", default="xgboost", help="Model for Training")
+    parser.add_argument("--hyper_params_path", default='', help="Hyper Params Path")
+    parser.add_argument("--hyper_params_bucket_name", default=DEFAULT_BUCKET_NAME, help="Hyper Params Bucket Name")
+    parser.add_argument("--hyper_params_key", default=DEFAULT_KEY, help="Hyper Parmas for Training")
 
     args = parser.parse_args()
 
-    run(data_root=args.data_root, mlflow_tracking_uri=args.mlflow_tracking_uri,
-        mlflow_experiment=args.mlflow_experiment, models_path=args.models_path,
-        model= args.model, hyper_params_path=args.hyper_params_path,
+    run(
+        data_root=args.data_root,
+        mlflow_tracking_uri=args.mlflow_tracking_uri,
+        mlflow_experiment=args.mlflow_experiment,
+        models_path=args.models_path,
+        model=args.model,
+        hyper_params_path=args.hyper_params_path,
         hyper_params_bucket_name=args.hyper_params_bucket_name,
-        hyper_params_key=args.hyper_params_key)
+        hyper_params_key=args.hyper_params_key,
+    )

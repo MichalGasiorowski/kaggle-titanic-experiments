@@ -7,11 +7,12 @@ from toolz import compose
 from sklearn.impute import SimpleImputer
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline, make_pipeline
-#from sklearn.pipeline import FeatureUnion
+
+# from sklearn.pipeline import FeatureUnion
 from sklearn.preprocessing import (
     OneHotEncoder,
-    #StandardScaler,
-    KBinsDiscretizer
+    # StandardScaler,
+    KBinsDiscretizer,
 )
 from sklearn.feature_extraction import DictVectorizer
 
@@ -20,6 +21,7 @@ DEFAULT_CATEGORICAL = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
 DEFAULT_NUMERICAL = ['Fare', "Age"]
 
 DEFAULT_ALL_COLUMNS = DEFAULT_CATEGORICAL + DEFAULT_NUMERICAL
+
 
 def get_all_columns():
     return DEFAULT_ALL_COLUMNS
@@ -47,38 +49,39 @@ def get_preprocessing_config():
 # try to use FeatureUnion to make more complicated pipeline
 # https://github.com/autoreleasefool/rumoureval/blob/042e2a01142391c32f6c3c67f51316ec3fac39e0/rumoureval/classification/sdqc.py
 def create_preprocessing_pipeline_for_dict():
-    transforms, target, categorical, numerical = get_preprocessing_config() #pylint: disable=unused-variable)
-    pipeline = make_pipeline(
-        DictVectorizer()
-    )
+    transforms, target, categorical, numerical = get_preprocessing_config()  # pylint: disable=unused-variable)
+    pipeline = make_pipeline(DictVectorizer())
     return pipeline
 
 
 def create_preprocessing_pipeline_for_df():
-    transforms, target, categorical, numerical = get_preprocessing_config() #pylint: disable=unused-variable)
+    transforms, target, categorical, numerical = get_preprocessing_config()  # pylint: disable=unused-variable)
 
     # numerical pipeline
-    cat_pipe = Pipeline([
-        ('imputer', SimpleImputer(strategy='constant', fill_value='missing')),
-        ('encoder', OneHotEncoder(handle_unknown='ignore', sparse=False))
-    ])
+    cat_pipe = Pipeline(
+        [
+            ('imputer', SimpleImputer(strategy='constant', fill_value='missing')),
+            ('encoder', OneHotEncoder(handle_unknown='ignore', sparse=False)),
+        ]
+    )
 
     # Define numerical pipeline
-    num_pipe = Pipeline([
-        ("imputation_mean", SimpleImputer(missing_values=np.nan, strategy="mean")),
-        ('binner', KBinsDiscretizer(n_bins=6))
-        #('scaler', StandardScaler())
-    ])
+    num_pipe = Pipeline(
+        [
+            ("imputation_mean", SimpleImputer(missing_values=np.nan, strategy="mean")),
+            ('binner', KBinsDiscretizer(n_bins=6))
+            # ('scaler', StandardScaler())
+        ]
+    )
 
-    preprocessor = ColumnTransformer([
-        ('cat', cat_pipe, categorical),
-        ('num', num_pipe, numerical)
-    ])
+    preprocessor = ColumnTransformer([('cat', cat_pipe, categorical), ('num', num_pipe, numerical)])
 
-    pipe = Pipeline([
-        #('dv', DictVectorizer()),
-        ('preprocessor', preprocessor)
-    ])
+    pipe = Pipeline(
+        [
+            # ('dv', DictVectorizer()),
+            ('preprocessor', preprocessor)
+        ]
+    )
 
     return pipe
 
@@ -91,7 +94,7 @@ def create_preprocessing_pipeline_for_df():
 #     return dicts
 
 
-def preprocess_df(df: pd.DataFrame, transforms, categorical, numerical): #pylint: disable=unused-argument
+def preprocess_df(df: pd.DataFrame, transforms, categorical, numerical):  # pylint: disable=unused-argument
 
     """Return processed features dict and target."""
 
@@ -101,6 +104,7 @@ def preprocess_df(df: pd.DataFrame, transforms, categorical, numerical): #pylint
     df[categorical] = df[categorical].fillna("-1").astype("str")
 
     return df
+
 
 def preprocess_train(df_train):
     transforms, target, categorical, numerical = get_preprocessing_config()
@@ -118,24 +122,26 @@ def preprocess_train(df_train):
 
     return X_train, y_train, pipeline
 
+
 def preprocess_valid(df_val, preprocessing_pipeline):
-    transforms, target, categorical, numerical = get_preprocessing_config() #pylint: disable=unused-variable
+    transforms, target, categorical, numerical = get_preprocessing_config()  # pylint: disable=unused-variable
 
     df_val = preprocess_df(df_val, transforms, categorical, numerical)
 
-    #val_dicts = prepare_dictionaries(df_val)
+    # val_dicts = prepare_dictionaries(df_val)
     X_val = preprocessing_pipeline.transform(df_val)
 
     y_val = df_val[target].values
 
     return X_val, y_val
 
+
 def preprocess_test(df_test, preprocessing_pipeline):
-    transforms, target, categorical, numerical = get_preprocessing_config() #pylint: disable=unused-variable)
+    transforms, target, categorical, numerical = get_preprocessing_config()  # pylint: disable=unused-variable)
 
     df_test = preprocess_df(df_test, transforms, categorical, numerical)
 
-    #test_dicts = prepare_dictionaries(df_test)
+    # test_dicts = prepare_dictionaries(df_test)
     X_test = preprocessing_pipeline.transform(df_test)
 
     return X_test
@@ -155,17 +161,13 @@ def run(data_root: str, output_path: str):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--data_root",
-        default='../../data',
-        help="The location where the raw Titanic data is downloaded"
+        "--data_root", default='../../data', help="The location where the raw Titanic data is downloaded"
     )
-    parser.add_argument(
-        "--output_path",
-        help="the location where the resulting files will be saved."
-    )
+    parser.add_argument("--output_path", help="the location where the resulting files will be saved.")
     args = parser.parse_args()
 
     run(args.data_root, args.output_path)
+
 
 if __name__ == '__main__':
     main()

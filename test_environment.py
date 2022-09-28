@@ -13,8 +13,7 @@ def main():
         raise ValueError(f'Unrecognized python interpreter: {REQUIRED_PYTHON}')
 
     if system_major != required_major:
-        raise TypeError(
-            f'This project requires Python {required_major}. Found: Python {sys.version}')
+        raise TypeError(f'This project requires Python {required_major}. Found: Python {sys.version}')
 
     print(">>> Development environment passes all tests!")
 

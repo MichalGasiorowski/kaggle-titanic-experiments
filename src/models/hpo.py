@@ -1,6 +1,7 @@
 import json
 import time
-#from toolz import compose
+
+# from toolz import compose
 import pickle
 import logging
 import argparse
@@ -20,10 +21,9 @@ from src.util.json_encoder import NpEncoder
 from src.features.build_features import preprocess_all
 from src.features.build_features import get_all_columns
 
-#from hyperopt.pyll import scope
+# from hyperopt.pyll import scope
 
 # sys.path.append('../')
-
 
 
 MLFLOW_DEFAULT_TRACKING_URI = "http://0.0.0.0:5000"
@@ -38,8 +38,7 @@ def load_pickle(filename: str):
 def split_train_read(filename: str, val_size=0.2, random_state=42):
     df_train_full = read_data(filename, columns=get_all_columns())
 
-    df_train, df_val = train_test_split(df_train_full,
-                                        test_size=val_size, random_state=random_state)
+    df_train, df_val = train_test_split(df_train_full, test_size=val_size, random_state=random_state)
     return df_train, df_val
 
 
@@ -55,15 +54,23 @@ def fit_rfc_model(params, X_train, y_train):
     min_samples_split = int(params['min_samples_split'])
     criterion = params['criterion']
     max_features = params['max_features']
-    model = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
-                min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split,
-                criterion=criterion, max_features=max_features,
-                n_jobs=1, random_state=42)
+    model = RandomForestClassifier(
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        min_samples_leaf=min_samples_leaf,
+        min_samples_split=min_samples_split,
+        criterion=criterion,
+        max_features=max_features,
+        n_jobs=1,
+        random_state=42,
+    )
     model.fit(X_train, y_train)
     return model
 
 
-def train_model_rfc_search(X_train, y_train, X_valid, y_val, X_train_full, max_evals, models_path): #pylint: disable=unused-argument
+def train_model_rfc_search(
+    X_train, y_train, X_valid, y_val, X_train_full, max_evals, models_path
+):  # pylint: disable=unused-argument
     mlflow.sklearn.autolog(disable=True)
 
     def objective(params):
@@ -79,12 +86,12 @@ def train_model_rfc_search(X_train, y_train, X_valid, y_val, X_train_full, max_e
             mlflow.log_metric('runtime', run_time)
 
             y_pred = model.predict(X_valid)
-            auc_score_calculated:float = roc_auc_score(y_val, y_pred)
+            auc_score_calculated: float = roc_auc_score(y_val, y_pred)
             mlflow.log_metric("auc_score", auc_score_calculated)
             # acc = accuracy_score(y_val, y_pred)
             # mlflow.log_metric("accuracy", acc)
 
-        return { 'loss': auc_score_calculated * (-1), 'status': STATUS_OK }
+        return {'loss': auc_score_calculated * (-1), 'status': STATUS_OK}
 
     search_space = {
         'n_estimators': hp.randint('n_estimators', 100, 1000),
@@ -102,7 +109,7 @@ def train_model_rfc_search(X_train, y_train, X_valid, y_val, X_train_full, max_e
         max_evals=int(max_evals),
         rstate=np.random.default_rng(42),
         # early_stop_fn=hyperopt.early_stop.no_progress_loss(20)
-        trials=Trials()
+        trials=Trials(),
     )
     print(f'best_params: {best_params}')
 
@@ -139,7 +146,7 @@ def fit_booster_model(params, train, valid, early_stopping_rounds=3, num_boost_r
         save_best=True,
         maximize=True,
         data_name="validation",
-        metric_name="auc"
+        metric_name="auc",
     )
 
     booster = xgb.train(
@@ -149,8 +156,7 @@ def fit_booster_model(params, train, valid, early_stopping_rounds=3, num_boost_r
         evals=[(valid, 'validation')],
         # early_stopping_rounds=early_stopping_rounds,
         verbose_eval=5,
-        callbacks=[es]
-
+        callbacks=[es],
     )
     return booster
 
@@ -188,7 +194,7 @@ def fit_cv_booster_model(params, full_train, nfold=5, early_stopping_rounds=10):
         verbose_eval=5,
         maximize=True,
         early_stopping_rounds=early_stopping_rounds,
-        callbacks=[SaveBestModel(cvboosters)]
+        callbacks=[SaveBestModel(cvboosters)],
     )
     return cvboosters, eval_history
 
@@ -196,10 +202,7 @@ def fit_cv_booster_model(params, full_train, nfold=5, early_stopping_rounds=10):
 def train_model_xgboost_search(train, valid, y_val, train_full, max_evals, models_path):
     mlflow.xgboost.autolog(disable=True)
 
-    train_eval_params = {
-        'objective': 'binary:logistic',
-        'eval_metric': 'auc'
-    }
+    train_eval_params = {'objective': 'binary:logistic', 'eval_metric': 'auc'}
     active_run = mlflow.active_run()
 
     def objective(params):
@@ -218,7 +221,7 @@ def train_model_xgboost_search(train, valid, y_val, train_full, max_evals, model
             mlflow.log_metric('runtime', run_time)
 
             y_pred = booster.predict(valid)
-            auc_score_calculated:float = roc_auc_score(y_val, y_pred)
+            auc_score_calculated: float = roc_auc_score(y_val, y_pred)
             mlflow.log_metric("auc_score", auc_score)
 
         return {'loss': auc_score_calculated * (-1), 'status': STATUS_OK, 'booster': booster.attributes()}
@@ -250,7 +253,7 @@ def train_model_xgboost_search(train, valid, y_val, train_full, max_evals, model
         max_evals=int(max_evals),
         # early_stop_fn=hyperopt.early_stop.no_progress_loss(10),
         trials=trials,
-        max_queue_len=5
+        max_queue_len=5,
     )
 
     print(f'best_hyperparams: {best_hyperparams}')
@@ -270,22 +273,23 @@ def train_model_xgboost_search(train, valid, y_val, train_full, max_evals, model
         cv_early_stopping_rounds = 5
         nfold = 5
 
-        _, eval_history = fit_cv_booster_model(best_hyperparams_extra,
-                                                 train_full, nfold=nfold,
-                                                 early_stopping_rounds=cv_early_stopping_rounds)
+        _, eval_history = fit_cv_booster_model(
+            best_hyperparams_extra, train_full, nfold=nfold, early_stopping_rounds=cv_early_stopping_rounds
+        )
 
         best_nrounds = eval_history.shape[0] - cv_early_stopping_rounds
         best_nrounds = int(best_nrounds / (1 - 1 / nfold))
 
-        logging.info(f'besteval_history.shape[0]: {eval_history.shape[0]}, '
-                     f'cv_early_stopping_rounds: {cv_early_stopping_rounds}')
+        logging.info(
+            f'besteval_history.shape[0]: {eval_history.shape[0]}, '
+            f'cv_early_stopping_rounds: {cv_early_stopping_rounds}'
+        )
         logging.info(f'best_nrounds: {best_nrounds}')
 
     # train final model with correct number of rounds, no Early stoppping full train dataset
     mlflow.xgboost.autolog()
 
-    final_model = fit_booster_model_no_validation(best_hyperparams_extra,
-                                                  train_full, num_boost_round=best_nrounds)
+    final_model = fit_booster_model_no_validation(best_hyperparams_extra, train_full, num_boost_round=best_nrounds)
 
     print(final_model)
     print(final_model.attributes())
@@ -336,36 +340,12 @@ def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--data_root",
-        default='../../data',
-        help="The location where the external data is downloaded"
-    )
-    parser.add_argument(
-        "--models_path",
-        default='../../models',
-        help="models_path"
-    )
-    parser.add_argument(
-        "--mlflow_tracking_uri",
-        default=MLFLOW_DEFAULT_TRACKING_URI,
-        help="Mlflow tracking uri"
-    )
-    parser.add_argument(
-        "--mlflow_experiment",
-        default="titanic-hpo",
-        help="Mlflow experiment"
-    )
-    parser.add_argument(
-        "--model",
-        default="xgboost",
-        help="Model for HPO"
-    )
-    parser.add_argument(
-        "--max_evals",
-        default="50",
-        help="Maximum number of evaluations for HPO"
-    )
+    parser.add_argument("--data_root", default='../../data', help="The location where the external data is downloaded")
+    parser.add_argument("--models_path", default='../../models', help="models_path")
+    parser.add_argument("--mlflow_tracking_uri", default=MLFLOW_DEFAULT_TRACKING_URI, help="Mlflow tracking uri")
+    parser.add_argument("--mlflow_experiment", default="titanic-hpo", help="Mlflow experiment")
+    parser.add_argument("--model", default="xgboost", help="Model for HPO")
+    parser.add_argument("--max_evals", default="50", help="Maximum number of evaluations for HPO")
 
     args = parser.parse_args()
 

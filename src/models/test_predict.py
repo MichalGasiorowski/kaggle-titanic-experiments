@@ -1,6 +1,6 @@
 import argparse
 
-#import curlify
+# import curlify
 import requests
 
 SERVICE_URL = 'http://localhost:9696/predict'
@@ -12,42 +12,18 @@ def curlify_request(req):
     method = req.method
     uri = req.url
     data = req.body
-    headers = ['"{0}: {1}"'.format(k, v) for k, v in req.headers.items()] #pylint: disable=consider-using-f-string
+    headers = ['"{0}: {1}"'.format(k, v) for k, v in req.headers.items()]  # pylint: disable=consider-using-f-string
     headers = " -H ".join(headers)
     return command.format(method=method, headers=headers, data=data, uri=uri)
 
 
-passenger_X = {
-    "Age": 45,
-    "Sex": 'female',
-    "Pclass": 0,
-    "Embarked": 'C',
-    "SibSp": 1,
-    "Parch": 4,
-    "Fare": 1111
-}
+passenger_X = {"Age": 45, "Sex": 'female', "Pclass": 0, "Embarked": 'C', "SibSp": 1, "Parch": 4, "Fare": 1111}
 
 lambda_passenger_X = {"data": [passenger_X]}
 
 two_passengers = [
-    {
-        "Age": 123,
-        "Sex": 'female',
-        "Pclass": 0,
-        "Embarked": 'C',
-        "SibSp": 1,
-        "Parch": 10,
-        "Fare": 69.34
-    },
-    {
-        "Age": 13,
-        "Sex": 'male',
-        "Pclass": 3,
-        "Embarked": 'C',
-        "SibSp": 0,
-        "Parch": 2,
-        "Fare": 8
-    }
+    {"Age": 123, "Sex": 'female', "Pclass": 0, "Embarked": 'C', "SibSp": 1, "Parch": 10, "Fare": 69.34},
+    {"Age": 13, "Sex": 'male', "Pclass": 3, "Embarked": 'C', "SibSp": 0, "Parch": 2, "Fare": 8},
 ]
 
 
@@ -75,6 +51,7 @@ def get_request_json(scenario):
 # response = requests.post(path_url, json=test_path_json)
 # print(response.json())
 
+
 def send_request(url, scenario):
     '''
     python test_predict.py --url 'http://localhost:9696/predict' --scenario 'single_service'
@@ -94,16 +71,8 @@ def send_request(url, scenario):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--url",
-        default=SERVICE_URL,
-        help="url to test prediction"
-    )
-    parser.add_argument(
-        "--scenario",
-        default='scenario',
-        help="scenario to test"
-    )
+    parser.add_argument("--url", default=SERVICE_URL, help="url to test prediction")
+    parser.add_argument("--scenario", default='scenario', help="scenario to test")
 
     args = parser.parse_args()
 
