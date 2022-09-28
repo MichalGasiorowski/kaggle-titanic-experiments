@@ -31,6 +31,9 @@ curlify = "*"
 pylint = "*"
 black = "*"
 isort = "*"
+pre-commit = "*"
+pytest = "*"
+deepdiff = "*"
 
 [requires]
 python_version = "3.9"
