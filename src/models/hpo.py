@@ -1,6 +1,5 @@
 import json
 import time
-
 # from toolz import compose
 import pickle
 import logging
@@ -18,8 +17,7 @@ from src.data.read import read_data
 from src.data.download import run as download_run
 from src.data.download import get_datapath
 from src.util.json_encoder import NpEncoder
-from src.features.build_features import preprocess_all
-from src.features.build_features import get_all_columns
+from src.features.build_features import preprocess_all, get_all_columns
 
 # from hyperopt.pyll import scope
 

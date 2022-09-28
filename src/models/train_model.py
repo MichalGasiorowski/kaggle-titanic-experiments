@@ -17,8 +17,7 @@ from src.data.read import read_data
 from src.data.download import DataPath
 from src.data.download import run as download_run
 from src.data.download import get_datapath
-from src.features.build_features import preprocess_all
-from src.features.build_features import get_all_columns
+from src.features.build_features import preprocess_all, get_all_columns
 
 MLFLOW_DEFAULT_TRACKING_URI = "http://0.0.0.0:5000"
 MLFLOW_DEFAULT_EXPERIMENT = "titanic-train-experiment"

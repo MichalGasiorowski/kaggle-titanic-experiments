@@ -7,12 +7,10 @@ from toolz import compose
 from sklearn.impute import SimpleImputer
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline, make_pipeline
-
 # from sklearn.pipeline import FeatureUnion
-from sklearn.preprocessing import (
+from sklearn.preprocessing import (  # StandardScaler,
     OneHotEncoder,
-    # StandardScaler,
-    KBinsDiscretizer,
+    KBinsDiscretizer
 )
 from sklearn.feature_extraction import DictVectorizer
 
