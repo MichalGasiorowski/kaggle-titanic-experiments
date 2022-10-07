@@ -7,11 +7,9 @@ from toolz import compose
 from sklearn.impute import SimpleImputer
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline, make_pipeline
+
 # from sklearn.pipeline import FeatureUnion
-from sklearn.preprocessing import (  # StandardScaler,
-    OneHotEncoder,
-    KBinsDiscretizer
-)
+from sklearn.preprocessing import OneHotEncoder, KBinsDiscretizer  # StandardScaler,
 from sklearn.feature_extraction import DictVectorizer
 
 DEFAULT_TARGET = 'Survived'
