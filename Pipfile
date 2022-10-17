@@ -36,4 +36,4 @@ pytest = "*"
 deepdiff = "*"
 
 [requires]
-python_version = "3.9.4"
+python_version = "3.9.13"

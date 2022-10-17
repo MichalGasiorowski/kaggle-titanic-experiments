@@ -21,4 +21,4 @@ python-dotenv = ">=0.5.1"
 awsebcli = "*"
 
 [requires]
-python_version = "3.9.4"
+python_version = "3.9.13"
