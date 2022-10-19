@@ -1,5 +1,10 @@
 import json
 import time
+import sys
+import os
+
+sys.path.append(os.pardir)
+sys.path.append(os.path.join(os.pardir, os.pardir))
 
 # from toolz import compose
 import pickle
@@ -22,7 +27,7 @@ from src.features.build_features import preprocess_all, get_all_columns
 
 # from hyperopt.pyll import scope
 
-# sys.path.append('../')
+sys.path.append('../')
 
 
 MLFLOW_DEFAULT_TRACKING_URI = "http://0.0.0.0:5000"
@@ -221,7 +226,7 @@ def train_model_xgboost_search(train, valid, y_val, train_full, max_evals, model
 
             y_pred = booster.predict(valid)
             auc_score_calculated: float = roc_auc_score(y_val, y_pred)
-            mlflow.log_metric("auc_score", auc_score)
+            mlflow.log_metric("auc_score", auc_score_calculated)
 
         return {'loss': auc_score_calculated * (-1), 'status': STATUS_OK, 'booster': booster.attributes()}
 
