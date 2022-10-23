@@ -22,8 +22,11 @@ from src.features.build_features import preprocess_all, get_all_columns
 MLFLOW_DEFAULT_TRACKING_URI = "http://0.0.0.0:5000"
 MLFLOW_DEFAULT_EXPERIMENT = "titanic-train-experiment"
 
-sys.path.append('../')
+sys.path.append(os.pardir)
+sys.path.append(os.path.join(os.pardir, os.pardir))
 
+THIS_FILE = os.path.abspath(__file__)
+THIS_DIR = os.path.dirname(THIS_FILE)
 
 DEFAULT_RUN_ID = '991e896e9ae742cca6c600b007223523'
 RUN_ID = os.getenv('RUN_ID', DEFAULT_RUN_ID)
@@ -162,9 +165,11 @@ def run(
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--data_root", default='../../data', help="The location where the external Titanic data is downloaded"
+        "--data_root",
+        default=f'{THIS_DIR}/../../data',
+        help="The location where the external Titanic data is downloaded",
     )
-    parser.add_argument("--models_path", default='../../models', help="models_path")
+    parser.add_argument("--models_path", default=f'{THIS_DIR}/../../models', help="models_path")
     parser.add_argument("--mlflow_tracking_uri", default=MLFLOW_DEFAULT_TRACKING_URI, help="Mlflow tracking uri")
     parser.add_argument("--mlflow_experiment", default=MLFLOW_DEFAULT_EXPERIMENT, help="Mlflow experiment")
     parser.add_argument("--model", default="xgboost", help="Model for Training")

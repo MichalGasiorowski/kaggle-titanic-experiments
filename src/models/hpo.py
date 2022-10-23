@@ -1,10 +1,13 @@
+import os
+import sys
 import json
 import time
-import sys
-import os
 
 sys.path.append(os.pardir)
 sys.path.append(os.path.join(os.pardir, os.pardir))
+
+THIS_FILE = os.path.abspath(__file__)
+THIS_DIR = os.path.dirname(THIS_FILE)
 
 # from toolz import compose
 import pickle
@@ -26,8 +29,6 @@ from src.util.json_encoder import NpEncoder
 from src.features.build_features import preprocess_all, get_all_columns
 
 # from hyperopt.pyll import scope
-
-sys.path.append('../')
 
 
 MLFLOW_DEFAULT_TRACKING_URI = "http://0.0.0.0:5000"
@@ -344,8 +345,10 @@ def run(data_root: str, mlflow_tracking_uri: str, mlflow_experiment: str, models
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_root", default='../../data', help="The location where the external data is downloaded")
-    parser.add_argument("--models_path", default='../../models', help="models_path")
+    parser.add_argument(
+        "--data_root", default=f'{THIS_DIR}/../../data', help="The location where the external data is downloaded"
+    )
+    parser.add_argument("--models_path", default=f'{THIS_DIR}/../../models', help="models_path")
     parser.add_argument("--mlflow_tracking_uri", default=MLFLOW_DEFAULT_TRACKING_URI, help="Mlflow tracking uri")
     parser.add_argument("--mlflow_experiment", default="titanic-hpo", help="Mlflow experiment")
     parser.add_argument("--model", default="xgboost", help="Model for HPO")
