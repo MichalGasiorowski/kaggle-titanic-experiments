@@ -2,7 +2,7 @@
 
 ( build it in at project root level directory )
 
-`docker build -f src/docker/predict/webservice/Dockerfile -t titanic-experiment-predict-service:v1 .`
+`docker build -f src/docker/predict/service/Dockerfile -t titanic-experiment-predict-service:v1 .`
 
 `docker run -it --rm \
 -p 9696:9696 \

@@ -31,13 +31,13 @@ quality_checks:
 	black .
 	pylint --recursive=y .
 
-build_webservice: quality_checks test
-	docker build -f src/docker/predict/webservice/Dockerfile -t ${LOCAL_SERVICE_IMAGE_NAME} .
+build_service: quality_checks test
+	docker build -f src/docker/predict/service/Dockerfile -t ${LOCAL_SERVICE_IMAGE_NAME} .
 
-integration_test_webservice: build_webservice
+integration_test_service: build_service
 	LOCAL_IMAGE_NAME=${LOCAL_SERVICE_IMAGE_NAME} bash src/integration-tests/run.sh
 
-publish_webservice: integration_test_webservice
+publish_service: integration_test_webservice
 	LOCAL_IMAGE_NAME=${LOCAL_SERVICE_IMAGE_NAME} bash src/scripts/publish.sh
 
 build_lambda: quality_checks test
