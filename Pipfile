@@ -25,6 +25,7 @@ graphviz = "*"
 flask = "*"
 gunicorn = "*"
 
+
 [dev-packages]
 awsebcli = "*"
 curlify = "*"
@@ -34,6 +35,7 @@ isort = "*"
 pre-commit = "*"
 pytest = "*"
 deepdiff = "*"
+docker-compose = "*"
 
 [requires]
 python_version = "3.9.13"

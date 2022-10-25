@@ -35,7 +35,7 @@ build_service: quality_checks test
 	docker build -f src/docker/predict/service/Dockerfile -t ${LOCAL_SERVICE_IMAGE_NAME} .
 
 integration_test_service: build_service
-	LOCAL_IMAGE_NAME=${LOCAL_SERVICE_IMAGE_NAME} bash src/integration-tests/run.sh
+	LOCAL_IMAGE_NAME=${LOCAL_SERVICE_IMAGE_NAME} bash src/integration-tests/service/run.sh
 
 publish_service: integration_test_webservice
 	LOCAL_IMAGE_NAME=${LOCAL_SERVICE_IMAGE_NAME} bash src/scripts/publish.sh
@@ -44,7 +44,7 @@ build_lambda: quality_checks test
 	docker build -f src/docker/predict/serverless/Dockerfile -t ${LOCAL_LAMBDA_IMAGE_NAME} .
 
 integration_test_lambda: build_lambda
-	LOCAL_IMAGE_NAME=${LOCAL_LAMBDA_IMAGE_NAME} bash src/integration-tests/run.sh
+	LOCAL_IMAGE_NAME=${LOCAL_LAMBDA_IMAGE_NAME} bash src/integration-tests/serverless/run.sh
 
 publish_lambda: integration_test_lambda
 	LOCAL_IMAGE_NAME=${LOCAL_LAMBDA_IMAGE_NAME} bash src/scripts/publish.sh
