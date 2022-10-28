@@ -23,13 +23,12 @@ run_mlflow: pipenv_install
 	mlflow server --host 0.0.0.0 --port 5000 --serve-artifacts --artifacts-destination ${S3_BUCKET}
 
 test:
-	pytest src/tests/
+	pipenv run pytest src/tests/
 
-quality_checks:
-	pipenv install --dev
-	isort .
-	black .
-	pylint --recursive=y .
+quality_checks: #pipenv_install
+	pipenv run isort .
+	pipenv run black .
+	pipenv run pylint --recursive=y .
 
 build_service: quality_checks test
 	docker build -f src/docker/predict/service/Dockerfile -t ${LOCAL_SERVICE_IMAGE_NAME} .
@@ -46,7 +45,7 @@ build_lambda: quality_checks test
 integration_test_lambda: build_lambda
 	LOCAL_IMAGE_NAME=${LOCAL_LAMBDA_IMAGE_NAME} bash src/integration-tests/serverless/run.sh
 
-publish_lambda: integration_test_lambda
+publish_lambda: #integration_test_lambda
 	LOCAL_IMAGE_NAME=${LOCAL_LAMBDA_IMAGE_NAME} bash src/scripts/publish.sh
 
 setup: pipenv_update
