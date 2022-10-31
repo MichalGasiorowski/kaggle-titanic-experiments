@@ -11,7 +11,7 @@ HPO_MODEL='xgboost'
 LOCAL_TAG:=v1
 LOCAL_SERVICE_IMAGE_NAME:=titanic-experiment-predict-service:${LOCAL_TAG}
 LOCAL_LAMBDA_IMAGE_NAME:=titanic-experiment-predict-lambda:${LOCAL_TAG}
-
+LAMBDA_REPOSITORY_NAME=titanic-survival-lambda
 
 pipenv_install:
 	pipenv install
@@ -36,7 +36,7 @@ build_service: quality_checks test
 integration_test_service: build_service
 	LOCAL_IMAGE_NAME=${LOCAL_SERVICE_IMAGE_NAME} bash src/integration-tests/service/run.sh
 
-publish_service: integration_test_webservice
+publish_service: integration_test_service
 	LOCAL_IMAGE_NAME=${LOCAL_SERVICE_IMAGE_NAME} bash src/scripts/publish.sh
 
 build_lambda: quality_checks test
@@ -46,7 +46,7 @@ integration_test_lambda: build_lambda
 	LOCAL_IMAGE_NAME=${LOCAL_LAMBDA_IMAGE_NAME} bash src/integration-tests/serverless/run.sh
 
 publish_lambda: #integration_test_lambda
-	LOCAL_IMAGE_NAME=${LOCAL_LAMBDA_IMAGE_NAME} bash src/scripts/publish.sh
+	LOCAL_IMAGE_NAME=${LOCAL_LAMBDA_IMAGE_NAME} REPOSITORY_NAME=${LAMBDA_REPOSITORY_NAME} bash src/scripts/publish.sh
 
 setup: pipenv_update
 	pre-commit install

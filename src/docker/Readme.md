@@ -62,7 +62,7 @@ https://aws.amazon.com/blogs/aws/new-for-aws-lambda-container-image-support/
 1) Install awsebcli : 
 `pipenv install awsebcli --dev`
 2) Init eb:
-`eb init --source  -p docker -r eu-west-1 titanic-survival-serving`
+`eb init --source  -p docker -r eu-west-1 titanic-survival-lambda`
 3) To run locally, using Dockerfile:
 `eb local run --port 9696`
 
@@ -76,14 +76,14 @@ https://aws.amazon.com/blogs/aws/new-for-aws-lambda-container-image-support/
 
 #### To setup ECR : 
 
-eb init -p docker -r eu-north-1 titanic-survival-serving
+eb init -p docker -r eu-north-1 titanic-survival-lambda
 
 `aws ecr create-repository --repository-name <repo_name> --region <region_name>`
 
-`aws ecr create-repository --repository-name titanic-survival-serving --region eu-north-1`
+`aws ecr create-repository --repository-name titanic-survival-lambda --region eu-north-1`
 Got URI:
 
-492542893717.dkr.ecr.eu-north-1.amazonaws.com/titanic-survival-serving
+492542893717.dkr.ecr.eu-north-1.amazonaws.com/titanic-survival-lambda
 
 Get authorization token :
 `AUTH_TOKEN=$(aws ecr get-login-password --region eu-north-1)`
@@ -95,18 +95,18 @@ Get authorization token :
 ` aws ecr --region <region> | docker login -u AWS -p $AUTH_TOKEN <repo_uri>`
 
 
-`aws ecr --region eu-north-1 | docker login -u AWS -p $AUTH_TOKEN 492542893717.dkr.ecr.eu-north-1.amazonaws.com/titanic-survival-serving`
+`aws ecr --region eu-north-1 | docker login -u AWS -p $AUTH_TOKEN 492542893717.dkr.ecr.eu-north-1.amazonaws.com/titanic-survival-lambda`
 
 
 #### Tag local docker image :
 
 `docker tag <source_image_tag> <target_ecr_repo_uri>`
 
-`docker tag titanic-experiment-predict-lambda:v1 492542893717.dkr.ecr.eu-north-1.amazonaws.com/titanic-survival-serving`
+`docker tag titanic-experiment-predict-lambda:v1 492542893717.dkr.ecr.eu-north-1.amazonaws.com/titanic-survival-lambda`
 
 Push to ECR:
 
-`docker push 492542893717.dkr.ecr.eu-north-1.amazonaws.com/titanic-survival-serving:latest`
+`docker push 492542893717.dkr.ecr.eu-north-1.amazonaws.com/titanic-survival-lambda:latest`
 
 To create lambda function on AWS:
 
