@@ -1,9 +1,6 @@
 services:
   backend:
     image: ${LOCAL_IMAGE_NAME}
-    #build:
-    #  context: ../docker/predict/serverless
-    #  dockerfile: ../backend.Dockerfile
     ports:
       - "9696:9696"
     environment:
