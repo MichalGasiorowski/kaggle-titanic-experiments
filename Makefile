@@ -15,7 +15,6 @@ LAMBDA_SERVICE_NAME=titanic-survival-service
 LOCAL_LAMBDA_IMAGE_NAME:=titanic-experiment-predict-lambda:${LOCAL_TAG}
 LAMBDA_REPOSITORY_NAME=titanic-survival-lambda
 
-# HPO_MAX_EVALS="30" make hpo
 
 pipenv_install:
 	pipenv install
@@ -25,6 +24,7 @@ pipenv_install:
 hpo: pipenv_install
 	${PYTHON_INTERPRETER} -m src.models.hpo --max_evals ${HPO_MAX_EVALS} --model ${HPO_MODEL}
 
+# example usage:
 # BUCKET_NAME="MY_S3_BUCKET_NAME" make run_mlflow
 run_mlflow: pipenv_install
 	mlflow server --host 0.0.0.0 --port 5000 --serve-artifacts --artifacts-destination ${S3_BUCKET}
@@ -62,3 +62,6 @@ lambda_integration_test: lambda_build
 lambda_publish: lambda_integration_test
 	LOCAL_IMAGE_NAME=${LOCAL_LAMBDA_IMAGE_NAME} REPOSITORY_NAME=${LAMBDA_REPOSITORY_NAME} bash src/scripts/publish.sh
 
+#
+
+# LOCAL_IMAGE_NAME=titanic-experiment-predict-lambda:v1 bash run.sh

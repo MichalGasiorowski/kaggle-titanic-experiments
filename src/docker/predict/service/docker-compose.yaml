@@ -1,6 +1,9 @@
 services:
   backend:
-    image: ${LOCAL_IMAGE_NAME}
+    image: ${LOCAL_IMAGE_NAME:-titanic-experiment-predict-service:v1}
+    build:
+      context: .
+      dockerfile: ./Dockerfile
     ports:
       - "9000:8080"
     environment:

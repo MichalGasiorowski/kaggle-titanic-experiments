@@ -1,8 +1,11 @@
 services:
   backend:
-    image: ${LOCAL_IMAGE_NAME}
+    image: ${LOCAL_IMAGE_NAME:-titanic-experiment-predict-lambda:v1}
+    build:
+      context: .
+      dockerfile: ./Dockerfile
     ports:
-      - "9696:9696"
+      - "9000:8080"
     environment:
       - RUN_ID=21cf301e4e7f459bae86218626159897
       - EXPERIMENT_NUMBER=1
