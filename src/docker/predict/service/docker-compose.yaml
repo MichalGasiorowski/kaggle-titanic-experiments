@@ -7,7 +7,7 @@ services:
     ports:
       - "9696:9696"
     environment:
-      - RUN_ID=21cf301e4e7f459bae86218626159897
+      - RUN_ID=${RUN_ID:-21cf301e4e7f459bae86218626159897}
       - EXPERIMENT_NUMBER=1
     volumes:
       - "${HOME}/.aws/credentials:/root/.aws/credentials:ro"

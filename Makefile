@@ -57,7 +57,7 @@ service_integration_test: service_build
 service_publish: service_integration_test
 	LOCAL_IMAGE_NAME=${LOCAL_SERVICE_IMAGE_NAME} REPOSITORY_NAME=${SERVICE_REPOSITORY_NAME}  bash src/scripts/publish.sh
 
-#lambda
+# lambda image
 
 lambda_build: quality_checks test
 	docker build -f src/docker/predict/serverless/Dockerfile -t ${LOCAL_LAMBDA_IMAGE_NAME} .
@@ -74,3 +74,10 @@ lambda_integration_test: lambda_build
 lambda_publish: lambda_integration_test
 	LOCAL_IMAGE_NAME=${LOCAL_LAMBDA_IMAGE_NAME} REPOSITORY_NAME=${LAMBDA_REPOSITORY_NAME} bash src/scripts/publish.sh
 
+# lambda function
+
+lambda_function_create: lambda_build
+	bash src/scripts/create_lambda.sh
+
+
+#aws create-function --function-name titanic-survivorship-prediction --role lambda-kinesis-role 492542893717.dkr.ecr.eu-north-1.amazonaws.com/titanic-survival-lambda
