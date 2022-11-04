@@ -45,6 +45,12 @@ setup: pipenv_install
 service_build: quality_checks test
 	docker build -f src/docker/predict/service/Dockerfile -t ${LOCAL_SERVICE_IMAGE_NAME} .
 
+service_run: service_build
+	docker-compose -f src/docker/predict/service/docker-compose.yaml up -d
+
+service_down:
+	docker-compose -f src/docker/predict/service/docker-compose.yaml down
+
 service_integration_test: service_build
 	LOCAL_IMAGE_NAME=${LOCAL_SERVICE_IMAGE_NAME} bash src/integration-tests/service/run.sh
 
@@ -56,12 +62,15 @@ service_publish: service_integration_test
 lambda_build: quality_checks test
 	docker build -f src/docker/predict/serverless/Dockerfile -t ${LOCAL_LAMBDA_IMAGE_NAME} .
 
+lambda_run: lambda_build
+	docker-compose -f src/docker/predict/serverless/docker-compose.yaml up -d
+
+lambda_down:
+	docker-compose -f src/docker/predict/serverless/docker-compose.yaml down
+
 lambda_integration_test: lambda_build
 	LOCAL_IMAGE_NAME=${LOCAL_LAMBDA_IMAGE_NAME} bash src/integration-tests/serverless/run.sh
 
 lambda_publish: lambda_integration_test
 	LOCAL_IMAGE_NAME=${LOCAL_LAMBDA_IMAGE_NAME} REPOSITORY_NAME=${LAMBDA_REPOSITORY_NAME} bash src/scripts/publish.sh
 
-#
-
-# LOCAL_IMAGE_NAME=titanic-experiment-predict-lambda:v1 bash run.sh
