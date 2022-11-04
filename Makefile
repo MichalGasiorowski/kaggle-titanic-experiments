@@ -11,7 +11,7 @@ HPO_MODEL ?= 'xgboost'
 #LOCAL_TAG:=$(shell date +"%Y-%m-%d-%H-%M")
 LOCAL_TAG:=v1
 LOCAL_SERVICE_IMAGE_NAME:=titanic-experiment-predict-service:${LOCAL_TAG}
-LAMBDA_SERVICE_NAME=titanic-survival-service
+SERVICE_REPOSITORY_NAME=titanic-survival-service
 LOCAL_LAMBDA_IMAGE_NAME:=titanic-experiment-predict-lambda:${LOCAL_TAG}
 LAMBDA_REPOSITORY_NAME=titanic-survival-lambda
 
@@ -49,7 +49,7 @@ service_integration_test: service_build
 	LOCAL_IMAGE_NAME=${LOCAL_SERVICE_IMAGE_NAME} bash src/integration-tests/service/run.sh
 
 service_publish: service_integration_test
-	LOCAL_IMAGE_NAME=${LOCAL_SERVICE_IMAGE_NAME} REPOSITORY_NAME=${LAMBDA_SERVICE_NAME}  bash src/scripts/publish.sh
+	LOCAL_IMAGE_NAME=${LOCAL_SERVICE_IMAGE_NAME} REPOSITORY_NAME=${SERVICE_REPOSITORY_NAME}  bash src/scripts/publish.sh
 
 #lambda
 

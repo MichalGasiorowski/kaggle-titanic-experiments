@@ -11,8 +11,6 @@ RUN pipenv install --system --deploy
 
 COPY [ "src/", "/app/src" ]
 
-RUN ls -la /app/*
-
 EXPOSE 9696
 
 WORKDIR /app
