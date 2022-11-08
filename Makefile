@@ -76,8 +76,10 @@ lambda_publish: lambda_integration_test
 
 # lambda function
 
-lambda_function_create: lambda_build
-	bash src/scripts/create_lambda.sh
+# example usage:
+# RUN_ID="d7d3adc4407742d5ad9b7a695ebeb411" make lambda_function_create
+lambda_function_create: #lambda_build
+	RUN_ID=${RUN_ID} bash src/scripts/create_lambda.sh
 
 
 #aws create-function --function-name titanic-survivorship-prediction --role lambda-kinesis-role 492542893717.dkr.ecr.eu-north-1.amazonaws.com/titanic-survival-lambda

@@ -14,10 +14,13 @@ REPOSITORY_NAME="${REPOSITORY_NAME:-$DEFAULT_REPOSITORY_NAME}"
 DEFAULT_FUNCTION_NAME=titanic-survivorship-prediction-v2
 FUNCTION_NAME="${FUNCTION_NAME:-$DEFAULT_FUNCTION_NAME}"
 
+DEFAULT_RUN_ID=21cf301e4e7f459bae86218626159897
+RUN_ID="${RUN_ID:-$DEFAULT_RUN_ID}"
+
 echo "Default region: $DEFAULT_REGION"
 echo "Aws region: AWS_REGION"
 echo "Local image name: $LOCAL_IMAGE_NAME"
-
+echo "RUN_ID: $RUN_ID"
 
 REPOSITORY_URI=$(aws ecr describe-repositories --registry-id "$REGISTRY_ID" --repository-names "$REPOSITORY_NAME" --query "repositories[].[repositoryUri][0][0]" | tr -d '"')
 echo "REPOSITORY_URI : $REPOSITORY_URI"
@@ -28,9 +31,12 @@ echo "TAG : $TAG"
 IMAGE_URI="$REPOSITORY_URI":"$TAG"
 echo "IMAGE_URI : $IMAGE_URI"
 
+
 aws lambda create-function --region "$AWS_REGION" --function-name "$FUNCTION_NAME" \
 	--timeout 45 \
 	--memory-size 256 \
   --package-type Image  \
   --code ImageUri="$IMAGE_URI"   \
-  --role arn:aws:iam::492542893717:role/lambda-kinesis-role
+  --role arn:aws:iam::492542893717:role/lambda-kinesis-role \
+  --environment "Variables={"RUN_ID"=$RUN_ID}"
+
