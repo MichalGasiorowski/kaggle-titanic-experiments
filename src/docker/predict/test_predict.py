@@ -23,9 +23,11 @@ two_passengers = [
     {"Age": 123, "Sex": 'female', "Pclass": 0, "Embarked": 'C', "SibSp": 1, "Parch": 10, "Fare": 69.34},
     {"Age": 13, "Sex": 'male', "Pclass": 3, "Embarked": 'C', "SibSp": 0, "Parch": 2, "Fare": 8},
 ]
+service_json_s3_path = {"s3_path": "s3://mlflow-enkidupal-experiments/test.csv"}
 
 lambda_passenger_X = {"data": [passenger_X]}
 lambda_two_passengers = {"data": two_passengers}
+lambda_json_s3_path = {"s3_path": "s3://mlflow-enkidupal-experiments/test.csv"}
 
 expected_response_single = {'predictions': [0.795], 'decisions': [1]}
 expected_response_multi = {'predictions': [0.84, 0.495], 'decisions': [1, 0]}
@@ -37,11 +39,56 @@ def get_request_json(scenario):
         json = [passenger_X]
     elif scenario == 'multi_service':
         json = two_passengers
+    elif scenario == 's3_path_service':
+        json = service_json_s3_path
     elif scenario == 'single_lambda':
         json = lambda_passenger_X
     elif scenario == 'multi_lambda':
         json = lambda_two_passengers
+    elif scenario == 's3_path_lambda':
+        json = lambda_json_s3_path
     return json
+
+
+def test_json_response(scenario, response_json):
+    if scenario == 's3_path_service':
+        assert response_json['predictions'] is not None
+        predictions = response_json['predictions']
+        assert len(predictions) == 418
+        assert all(v >= 0.0 and v <= 1.0 for v in predictions)
+
+        assert response_json['decisions'] is not None
+        decisions = response_json['decisions']
+        assert len(response_json['decisions']) == 418
+        assert all(v in (0, 1) for v in decisions)
+        return
+    elif scenario == 's3_path_lambda':
+        assert response_json['predictions'] is not None
+        predictions = response_json['predictions']
+        assert len(predictions) == 418
+        assert all(v >= 0.0 and v <= 1.0 for v in predictions)
+
+        assert response_json['decisions'] is not None
+        decisions = response_json['decisions']
+        assert len(response_json['decisions']) == 418
+        assert all(v in (0, 1) for v in decisions)
+        return
+
+    expected_json = None
+    if scenario == 'single_service':
+        expected_json = expected_response_single
+    elif scenario == 'multi_service':
+        expected_json = expected_response_single
+    elif scenario == 'single_lambda':
+        expected_json = expected_response_single
+    elif scenario == 'multi_lambda':
+        expected_json = expected_response_multi
+
+    diff = DeepDiff(response_json, expected_json, significant_digits=1)
+    print(f'diff={diff}')
+
+    assert 'type_changes' not in diff
+    assert 'values_changed' not in diff
 
 
 def get_expected_response(scenario):
@@ -83,7 +130,7 @@ def send_request(url, scenario):
     response = requests.post(url, json=json, timeout=30)  # 1-element list, since the list is expected
     response_json = response.json()
 
-    expected_response = get_expected_response(scenario)
+    # expected_response = get_expected_response(scenario)
 
     req = response.request
     curlified_request = curlify_request(req)
@@ -91,12 +138,6 @@ def send_request(url, scenario):
     print(f'curlified_request:\n {curlified_request}')
 
     print(f'response.json(): \n {response_json}')
-
-    diff = DeepDiff(response_json, expected_response, significant_digits=1)
-    print(f'diff={diff}')
-
-    assert 'type_changes' not in diff
-    assert 'values_changed' not in diff
 
 
 if __name__ == '__main__':

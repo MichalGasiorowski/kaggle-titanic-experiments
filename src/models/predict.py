@@ -5,6 +5,7 @@ import boto3
 import mlflow
 import pandas as pd
 
+from src.data.read import load_file_from_s3
 from src.features.build_features import get_all_columns, preprocess_test
 
 DEFAULT_RUN_ID = '21cf301e4e7f459bae86218626159897'
@@ -27,12 +28,13 @@ body = response['Body'].read()
 preprocessor = pickle.loads(body)
 
 
-def load_file_from_s3():
-    pass
-
-
 def create_features(json):
     df = pd.json_normalize(json, meta=get_all_columns())
+    return df
+
+
+def create_features_for_s3_path(s3_path):
+    df = load_file_from_s3(s3_path, columns=get_all_columns())
     return df
 
 

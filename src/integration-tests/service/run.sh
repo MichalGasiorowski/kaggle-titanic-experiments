@@ -31,6 +31,8 @@ pipenv run python "${DOCKER_PREDICT_DIR}"/test_predict.py --url 'http://localhos
 
 pipenv run python "${DOCKER_PREDICT_DIR}"/test_predict.py --url 'http://localhost:9696/predict' --scenario 'multi_service'
 
+pipenv run python "${DOCKER_PREDICT_DIR}"/test_predict.py --url 'http://localhost:9696/predict_from_s3_path' --scenario 's3_path_service'
+
 
 ERROR_CODE=$?
 
