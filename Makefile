@@ -83,3 +83,9 @@ lambda_function_create: #lambda_build
 
 
 #aws create-function --function-name titanic-survivorship-prediction --role lambda-kinesis-role 492542893717.dkr.ecr.eu-north-1.amazonaws.com/titanic-survival-lambda
+
+
+# upload data to s3
+
+upload_data:
+	${PYTHON_INTERPRETER} -m src.data.write --path ${PROJECT_DIR}/data --bucketname ${BUCKET_NAME}
