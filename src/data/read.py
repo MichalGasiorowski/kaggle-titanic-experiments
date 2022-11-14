@@ -4,10 +4,12 @@ import boto3
 import pandas as pd
 
 DEFAULT_TARGET = 'Survived'
-DEFAULT_CATEGORICAL = ('Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch')
-DEFAULT_NUMERICAL = ('Fare', "Age")
+DEFAULT_CATEGORICAL = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
+DEFAULT_NUMERICAL = ['Fare', 'Age']
+ID_COLUMN = ['PassengerId']
 
-DEFAULT_ALL_COLUMNS = DEFAULT_CATEGORICAL + DEFAULT_NUMERICAL
+
+DEFAULT_ALL_COLUMNS = ID_COLUMN + DEFAULT_CATEGORICAL + DEFAULT_NUMERICAL
 
 
 def read_data(filename, columns=DEFAULT_ALL_COLUMNS):

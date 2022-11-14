@@ -14,13 +14,24 @@ from sklearn.feature_extraction import DictVectorizer
 
 DEFAULT_TARGET = 'Survived'
 DEFAULT_CATEGORICAL = ['Sex', 'Pclass', 'Embarked', 'SibSp', 'Parch']
-DEFAULT_NUMERICAL = ['Fare', "Age"]
+DEFAULT_NUMERICAL = ['Fare', 'Age']
+ID_COLUMN = 'PassengerId'
 
-DEFAULT_ALL_COLUMNS = DEFAULT_CATEGORICAL + DEFAULT_NUMERICAL
+
+DEFAULT_ALL_COLUMNS = [ID_COLUMN] + DEFAULT_CATEGORICAL + DEFAULT_NUMERICAL
+DEFAULT_TRAIN_ALL_COLUMNS = DEFAULT_CATEGORICAL + DEFAULT_NUMERICAL
+
+
+def get_id_column():
+    return ID_COLUMN
 
 
 def get_all_columns():
-    return DEFAULT_ALL_COLUMNS
+    return DEFAULT_TRAIN_ALL_COLUMNS
+
+
+def get_all_test_columns():
+    return DEFAULT_TRAIN_ALL_COLUMNS
 
 
 def dump_pickle(obj, filename):

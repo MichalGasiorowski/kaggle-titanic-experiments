@@ -29,8 +29,14 @@ lambda_passenger_X = {"data": [passenger_X]}
 lambda_two_passengers = {"data": two_passengers}
 lambda_json_s3_path = {"s3_path": "s3://mlflow-enkidupal-experiments/data/external/test/test.csv"}
 
-expected_response_single = {'predictions': [0.795], 'decisions': [1]}
-expected_response_multi = {'predictions': [0.84, 0.495], 'decisions': [1, 0]}
+# expected_response_single = {'predictions': [0.795], 'decisions': [1]}
+'[{"PassengerId": -1, "predictions": 0.8866254687309265, "decisions": 1}]'
+expected_response_single = [{"PassengerId": ".*", 'prediction': [0.795], 'decision': 1}]
+# expected_response_multi = {'predictions': [0.84, 0.495], 'decisions': [1, 0]}
+expected_response_multi = [
+    {"PassengerId": ".*", 'prediction': [0.84], 'decision': 1},
+    {"PassengerId": ".*", 'prediction': [0.495], 'decision': 0},
+]
 
 
 def get_request_json(scenario):

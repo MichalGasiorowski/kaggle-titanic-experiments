@@ -1,7 +1,9 @@
+import json
+
 from flask import Flask, request
 
-from src.data.read import read_data, load_file_from_s3
-from src.models.predict import create_features, calculate_predict
+from src.data.read import read_data
+from src.models.predict import create_features, calculate_predict, create_features_for_s3_path
 from src.features.build_features import get_all_columns
 
 app = Flask('titanic-survivorship-prediction')
@@ -13,7 +15,8 @@ def predict():
     print(json)
     features = create_features(json)
     predictions = calculate_predict(features)
-    return dict(predictions)
+    pred_json = json.dumps(predictions)
+    return pred_json
 
 
 @app.route('/predict_from_s3_path', methods=['POST'])
@@ -21,9 +24,11 @@ def predict_from_path():
     json = request.get_json()
     print(json)
     s3_path = json['s3_path']
-    df = load_file_from_s3(s3_path, get_all_columns())
+    features = create_features_for_s3_path(s3_path)
 
-    return calculate_predict(df)
+    predictions = calculate_predict(features)
+    pred_json = json.dumps(predictions)
+    return pred_json
 
 
 if __name__ == "__main__":

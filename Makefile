@@ -62,7 +62,7 @@ service_publish: service_integration_test
 lambda_build: quality_checks test
 	docker build -f src/docker/predict/serverless/Dockerfile -t ${LOCAL_LAMBDA_IMAGE_NAME} .
 
-lambda_run: lambda_build
+lambda_run: lambda_build lambda_down
 	docker-compose -f src/docker/predict/serverless/docker-compose.yaml up -d
 
 lambda_down:
