@@ -11,9 +11,9 @@ app = Flask('titanic-survivorship-prediction')
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    json = request.get_json()
-    print(json)
-    features = create_features(json)
+    request_json = request.get_json()
+    print(f"request_json: {request_json}")
+    features = create_features(request_json)
     predictions = calculate_predict(features)
     pred_json = json.dumps(predictions)
     return pred_json
@@ -21,9 +21,9 @@ def predict():
 
 @app.route('/predict_from_s3_path', methods=['POST'])
 def predict_from_path():
-    json = request.get_json()
-    print(json)
-    s3_path = json['s3_path']
+    request_json = request.get_json()
+    print(f"request_json: {request_json}")
+    s3_path = request_json['s3_path']
     features = create_features_for_s3_path(s3_path)
 
     predictions = calculate_predict(features)
