@@ -25,6 +25,8 @@ DEFAULT_TRAIN_ALL_COLUMNS = DEFAULT_CATEGORICAL + DEFAULT_NUMERICAL
 def get_id_column():
     return ID_COLUMN
 
+def get_target_column():
+    return DEFAULT_TARGET
 
 def get_all_columns():
     return DEFAULT_TRAIN_ALL_COLUMNS

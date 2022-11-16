@@ -29,13 +29,10 @@ lambda_passenger_X = {"data": [passenger_X]}
 lambda_two_passengers = {"data": two_passengers}
 lambda_json_s3_path = {"s3_path": "s3://mlflow-enkidupal-experiments/data/external/test/test.csv"}
 
-# expected_response_single = {'predictions': [0.795], 'decisions': [1]}
-'[{"PassengerId": -1, "predictions": 0.8866254687309265, "decisions": 1}]'
-expected_response_single = [{"PassengerId": ".*", 'prediction': [0.795], 'decision': 1}]
-# expected_response_multi = {'predictions': [0.84, 0.495], 'decisions': [1, 0]}
+expected_response_single = [{"PassengerId": ".*", 'Prediction': [0.795], 'Survived': 1}]
 expected_response_multi = [
-    {"PassengerId": ".*", 'prediction': [0.84], 'decision': 1},
-    {"PassengerId": ".*", 'prediction': [0.495], 'decision': 0},
+    {"PassengerId": ".*", 'Prediction': [0.84], 'Survived': 1},
+    {"PassengerId": ".*", 'Prediction': [0.495], 'Survived': 0},
 ]
 
 
@@ -58,25 +55,25 @@ def get_request_json(scenario):
 
 def test_json_response(scenario, response_json):
     if scenario == 's3_path_service':
-        assert response_json['predictions'] is not None
-        predictions = response_json['predictions']
+        assert response_json['Prediction'] is not None
+        predictions = response_json['Prediction']
         assert len(predictions) == 418
         assert all(v >= 0.0 and v <= 1.0 for v in predictions)
 
-        assert response_json['decisions'] is not None
-        decisions = response_json['decisions']
-        assert len(response_json['decisions']) == 418
+        assert response_json['Survived'] is not None
+        decisions = response_json['Survived']
+        assert len(response_json['Survived']) == 418
         assert all(v in (0, 1) for v in decisions)
         return
     elif scenario == 's3_path_lambda':
-        assert response_json['predictions'] is not None
-        predictions = response_json['predictions']
+        assert response_json['Prediction'] is not None
+        predictions = response_json['Prediction']
         assert len(predictions) == 418
         assert all(v >= 0.0 and v <= 1.0 for v in predictions)
 
-        assert response_json['decisions'] is not None
-        decisions = response_json['decisions']
-        assert len(response_json['decisions']) == 418
+        assert response_json['Survived'] is not None
+        decisions = response_json['Survived']
+        assert len(response_json['Survived']) == 418
         assert all(v in (0, 1) for v in decisions)
         return
 
@@ -109,23 +106,6 @@ def get_expected_response(scenario):
         json = expected_response_multi
     return json
 
-
-# response = requests.post(url, json=two_passengers)
-# print(response.json())
-
-
-# test_path_json = {
-#    'path': '../../data/external/test/test.csv'
-# }
-
-# path_url = 'http://localhost:9696/predict_from_path'
-
-# response = requests.post(path_url, json=test_path_json)
-# print(response.json())
-
-#  {'predictions': [0.7950621843338013], 'decisions': [1]}
-
-
 def send_request(url, scenario):
     '''
     python test_predict.py --url 'http://localhost:9696/predict' --scenario 'single_service'
@@ -135,8 +115,6 @@ def send_request(url, scenario):
 
     response = requests.post(url, json=json, timeout=30)  # 1-element list, since the list is expected
     response_json = response.json()
-
-    # expected_response = get_expected_response(scenario)
 
     req = response.request
     curlified_request = curlify_request(req)
