@@ -65,7 +65,7 @@ def calculate_predict_old(df: pd.DataFrame):
     return result
 
 
-def calculate_predict(df: pd.DataFrame):
+def calculate_predict_df(df: pd.DataFrame):
     X_test = preprocess_test(df, preprocessor)
     passengerId_np = df.loc[:, ID_COLUMN].to_numpy()
     print(model)
@@ -77,6 +77,11 @@ def calculate_predict(df: pd.DataFrame):
 
     predictions_df = pd.DataFrame(data=predictions_np_added, columns=[ID_COLUMN, 'prediction', 'decision'])
     predictions_df = predictions_df.astype({ID_COLUMN: 'int32', 'prediction': 'float32', 'decision': 'int32'})
+    return predictions_df
+
+
+def calculate_predict_dict(df: pd.DataFrame):
+    predictions_df = calculate_predict_df(df)
     df_dict = predictions_df.to_dict('records')
 
     return df_dict
