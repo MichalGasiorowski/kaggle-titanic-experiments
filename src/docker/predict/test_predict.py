@@ -106,6 +106,7 @@ def get_expected_response(scenario):
         json = expected_response_multi
     return json
 
+
 def send_request(url, scenario):
     '''
     python test_predict.py --url 'http://localhost:9696/predict' --scenario 'single_service'

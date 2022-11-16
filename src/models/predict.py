@@ -6,9 +6,8 @@ import numpy as np
 import mlflow
 import pandas as pd
 
-from src.data.read import load_file_from_s3
 import src.features.build_features as build_features
-
+from src.data.read import load_file_from_s3
 
 DEFAULT_RUN_ID = '21cf301e4e7f459bae86218626159897'
 RUN_ID = os.getenv('RUN_ID', DEFAULT_RUN_ID)
@@ -32,6 +31,7 @@ preprocessor = pickle.loads(body)
 ID_COLUMN = build_features.get_id_column()
 TARGET_COLUMN = build_features.get_target_column()
 PREDICTION_COLUMN = 'Prediction'
+
 
 def get_model():
     return model

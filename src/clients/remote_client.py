@@ -1,4 +1,5 @@
 from urllib.parse import urljoin
+import pandas as pd
 
 import requests
 
@@ -15,10 +16,10 @@ lambda_json_s3_path = {"s3_path": "s3://mlflow-enkidupal-experiments/data/extern
 class PredictServiceClient(object):
     def __init__(self, host='localhost:9696', suffix=SERVICE_URL_SUFFIX):
         self.host = host
-        self.set_client_url(suffix=suffix)
+        self.url = self.calculate_client_url(suffix=suffix)
 
-    def set_client_url(self, suffix=LAMBDA_URL_SUFFIX):
-        self.url = urljoin(self.host, suffix)
+    def calculate_client_url(self, suffix=LAMBDA_URL_SUFFIX):
+        return urljoin(self.host, suffix)
 
     def post_request(self, json):
         response = requests.post(self.url, json=json, timeout=30)
@@ -35,10 +36,10 @@ class PredictServiceClient(object):
 class PredictLambdaClient(object):
     def __init__(self, host='localhost:9000', suffix=LAMBDA_URL_SUFFIX):
         self.host = host
-        self.set_client_url(suffix=suffix)
+        self.url = self.calculate_client_url(suffix=suffix)
 
-    def set_client_url(self, suffix=LAMBDA_URL_SUFFIX):
-        self.url = urljoin(self.host, suffix)
+    def calculate_client_url(self, suffix=LAMBDA_URL_SUFFIX):
+        return urljoin(self.host, suffix)
 
     def post_request(self, json):
         response = requests.post(self.url, json=json, timeout=30)
@@ -61,6 +62,6 @@ class KaggleSubmissionClient(object):
         self.client = client
 
     def make_kaggle_submission_s3_path(self, s3_path):
-        response = self.client.predict_s3path(s3_path)
+        df: pd.DataFrame = self.client.predict_s3path(s3_path=s3_path)
 
-        return response
+        return df.to_csv(columns=['PassengerId', 'Survived'], index=False)
