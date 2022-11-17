@@ -1,6 +1,6 @@
 from urllib.parse import urljoin
-import pandas as pd
 
+import pandas as pd
 import requests
 
 SERVICE_URL_SUFFIX = 'predict'
@@ -26,7 +26,8 @@ class PredictServiceClient(object):
         return response.json()
 
     def predict(self, data):
-        return self.post_request(data)
+        json = {"data": [data]}
+        return self.post_request(json)
 
     def predict_s3path(self, s3_path):
         json = {"s3_path": f"{s3_path}"}
@@ -61,7 +62,12 @@ class KaggleSubmissionClient(object):
     def __init__(self, client):
         self.client = client
 
-    def make_kaggle_submission_s3_path(self, s3_path):
+    def make_kaggle_csv_submission_from_s3_path(self, s3_path):
         df: pd.DataFrame = self.client.predict_s3path(s3_path=s3_path)
 
         return df.to_csv(columns=['PassengerId', 'Survived'], index=False)
+
+    def make_kaggle_df_submission_from_s3_path(self, s3_path):
+        df: pd.DataFrame = self.client.predict_s3path(s3_path=s3_path)
+
+        return df

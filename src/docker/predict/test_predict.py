@@ -23,6 +23,9 @@ two_passengers = [
     {"Age": 123, "Sex": 'female', "Pclass": 0, "Embarked": 'C', "SibSp": 1, "Parch": 10, "Fare": 69.34},
     {"Age": 13, "Sex": 'male', "Pclass": 3, "Embarked": 'C', "SibSp": 0, "Parch": 2, "Fare": 8},
 ]
+
+service_passenger_X = {"data": [passenger_X]}
+service_two_passengers = {"data": two_passengers}
 service_json_s3_path = {"s3_path": "s3://mlflow-enkidupal-experiments/data/external/test/test.csv"}
 
 lambda_passenger_X = {"data": [passenger_X]}
@@ -39,9 +42,9 @@ expected_response_multi = [
 def get_request_json(scenario):
     json = None
     if scenario == 'single_service':
-        json = [passenger_X]
+        json = service_passenger_X
     elif scenario == 'multi_service':
-        json = two_passengers
+        json = service_two_passengers
     elif scenario == 's3_path_service':
         json = service_json_s3_path
     elif scenario == 'single_lambda':
